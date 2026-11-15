@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
-	"github.com/samsaffron/term-llm/internal/llm/engine"
+	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/engine"
 )
 
 // ErrToolRemovedFromCatalogue is returned by CodeModeIdentity when the tool is
@@ -147,4 +147,10 @@ func GetMCPToolSpecs(manager *Manager) []core.ToolSpec {
 		})
 	}
 	return specs
+}
+
+// CodeModeExposure is independent of remote names and untrusted annotations.
+// Admission and dispatch still validate exact catalogue identity and live policy.
+func (*MCPTool) CodeModeExposure() core.CodeModeExposure {
+	return core.CodeModeExposure{Allowed: true}
 }

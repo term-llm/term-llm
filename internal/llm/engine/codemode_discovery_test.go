@@ -7,8 +7,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/samsaffron/term-llm/internal/codemode"
-	"github.com/samsaffron/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/codemode"
+	"github.com/term-llm/term-llm/internal/llm/core"
 )
 
 type describedCodeTool struct {
@@ -26,7 +26,7 @@ func TestCodeModeDiscoveryPurposeAndCeiling(t *testing.T) {
 	e := newCodeEngine()
 	tool := describedCodeTool{codeTestTool: codeTestTool{name: "unfamiliar.exact-name", schema: map[string]interface{}{"type": "object"}}, description: strings.Repeat("é", 700)}
 	e.RegisterTool(tool)
-	e.RegisterTool(codeTestTool{name: "ask_user"})
+	e.RegisterTool(policyCodeTestTool{codeTestTool: codeTestTool{name: "ask_user"}, exposure: core.CodeModeExposure{Reason: "foreground_interaction"}})
 	c := admitTestCell(t, e)
 	raw, err := c.Describe(context.Background(), []string{tool.name})
 	if err != nil {

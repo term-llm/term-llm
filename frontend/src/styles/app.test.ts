@@ -70,7 +70,7 @@ describe('compaction progress styles', () => {
 describe('running conversation status styles', () => {
   it('keeps waiting text static instead of continuously repainting a clipped gradient', () => {
     const start = preactOverrides.indexOf('.streaming-indicator {');
-    const end = preactOverrides.indexOf('/* Composer */', start);
+    const end = preactOverrides.indexOf('/* File changes */', start);
     const statusCSS = preactOverrides.slice(start, end);
 
     expect(start).toBeGreaterThanOrEqual(0);
@@ -91,11 +91,13 @@ describe('running conversation status styles', () => {
 
   it('pulses only the status dot, and only its opacity', () => {
     const start = preactOverrides.indexOf('.streaming-indicator {');
-    const end = preactOverrides.indexOf('/* Composer */', start);
+    const end = preactOverrides.indexOf('/* File changes */', start);
     const statusCSS = preactOverrides.slice(start, end);
     const pulseStart = statusCSS.indexOf('@keyframes streaming-status-pulse {');
     const pulse = statusCSS.slice(pulseStart, statusCSS.indexOf('@media', pulseStart));
 
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
     expect(statusCSS.match(/infinite/g)).toHaveLength(1);
     expect(statusCSS).toMatch(
       /\.streaming-indicator::before\s*\{[^}]*animation: streaming-status-pulse 1\.4s ease-in-out infinite;/,
@@ -406,8 +408,10 @@ describe('diff review styles', () => {
     expect(appCSS).toMatch(/\.diff-comment-affordance\s*\{[^}]*height: 1\.15rem;/s);
   });
 
-  it('sizes every file action glyph consistently', () => {
-    expect(appCSS).toMatch(/\.diff-action-btn svg\s*\{[^}]*width: 19px;[^}]*height: 19px;/s);
+  it('uses the shared glyph size for file actions instead of an overridden legacy size', () => {
+    expect(preactOverrides).toMatch(
+      /\.diff-action-btn svg,[^{]*\{[^}]*width: 1\.05rem;[^}]*height: 1\.05rem;/s,
+    );
   });
 
   it('anchors comment cards to code without pinning hunk text to the action column', () => {

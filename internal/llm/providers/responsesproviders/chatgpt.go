@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/config"
-	"github.com/samsaffron/term-llm/internal/credentials"
-	"github.com/samsaffron/term-llm/internal/oauth"
-	"github.com/samsaffron/term-llm/internal/providerhttp"
-	"github.com/samsaffron/term-llm/internal/runtimeoutput"
-	"github.com/samsaffron/term-llm/internal/signal"
+	"github.com/term-llm/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/credentials"
+	"github.com/term-llm/term-llm/internal/oauth"
+	"github.com/term-llm/term-llm/internal/providerhttp"
+	"github.com/term-llm/term-llm/internal/runtimeoutput"
+	"github.com/term-llm/term-llm/internal/signal"
 	"golang.org/x/term"
 )
 
@@ -441,7 +441,7 @@ func NewChatGPTResponsesClient(creds *credentials.ChatGPTCredentials) *Responses
 					return fmt.Errorf("failed to refresh ChatGPT session: %w", err)
 				}
 				failedRefreshToken := creds.RefreshToken
-				if clearErr := credentials.ClearChatGPTCredentialsIfRefreshToken(failedRefreshToken); clearErr != nil {
+				if clearErr := credentials.ClearCredentialsAfterRefresh(err, failedRefreshToken); clearErr != nil {
 					return fmt.Errorf("ChatGPT session expired and failed to clear credentials: %w", clearErr)
 				}
 				return fmt.Errorf("ChatGPT session expired — please re-run your command to re-authenticate")

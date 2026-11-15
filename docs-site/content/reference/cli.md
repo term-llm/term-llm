@@ -37,7 +37,7 @@ Manage agents (named configuration bundles)
 
 ### `term-llm agents clear`
 
-Clear all preferences for an agent
+Clear selected or all preferences for an agent
 
 ### `term-llm agents copy`
 

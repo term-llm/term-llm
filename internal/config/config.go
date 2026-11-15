@@ -10,8 +10,8 @@ import (
 	"time"
 
 	mapstructure "github.com/go-viper/mapstructure/v2"
-	"github.com/samsaffron/term-llm/internal/atomicfile"
-	"github.com/samsaffron/term-llm/internal/providerspec"
+	"github.com/term-llm/term-llm/internal/atomicfile"
+	"github.com/term-llm/term-llm/internal/providerspec"
 	"gopkg.in/yaml.v3"
 )
 
@@ -224,6 +224,7 @@ type ProviderConfig struct {
 type Config struct {
 	MCP             MCPConfig                 `mapstructure:"mcp" yaml:"mcp,omitempty"`
 	DefaultProvider string                    `mapstructure:"default_provider"`
+	CredentialsDir  string                    `mapstructure:"credentials_dir" yaml:"credentials_dir,omitempty"`
 	Providers       map[string]ProviderConfig `mapstructure:"providers"`
 	Diagnostics     DiagnosticsConfig         `mapstructure:"diagnostics"`
 	Memory          MemoryConfig              `mapstructure:"memory" yaml:"memory,omitempty"`
@@ -377,8 +378,9 @@ type AgentPreference struct {
 	Model    string `mapstructure:"model,omitempty" yaml:"model,omitempty"`
 
 	// Tool configuration
-	ToolsEnabled  []string `mapstructure:"tools_enabled,omitempty" yaml:"tools_enabled,omitempty"`
-	ToolsDisabled []string `mapstructure:"tools_disabled,omitempty" yaml:"tools_disabled,omitempty"`
+	ToolsEnabled  []string  `mapstructure:"tools_enabled,omitempty" yaml:"tools_enabled,omitempty"`
+	ToolsDisabled []string  `mapstructure:"tools_disabled,omitempty" yaml:"tools_disabled,omitempty"`
+	MCP           *[]string `mapstructure:"mcp,omitempty" yaml:"mcp,omitempty"` // nil inherits; empty clears MCP defaults.
 
 	// Shell settings
 	ShellAllow   []string `mapstructure:"shell_allow,omitempty" yaml:"shell_allow,omitempty"`
@@ -1213,7 +1215,7 @@ type ClassifyProviderConfig struct {
 
 // SearchConfig configures web search providers
 type SearchConfig struct {
-	Provider      string                 `mapstructure:"provider"`       // exa_mcp (default), exa, perplexity, parallel, tavily, brave, google, keenable, duckduckgo
+	Provider      string                 `mapstructure:"provider"`       // exa_mcp (default), exa, perplexity, parallel, tavily, brave, google, youcom, keenable, duckduckgo
 	FetchProvider string                 `mapstructure:"fetch_provider"` // jina (default), exa_mcp, none
 	ForceExternal bool                   `mapstructure:"force_external"` // force external search for all providers
 	Exa           SearchExaConfig        `mapstructure:"exa"`
@@ -1223,6 +1225,7 @@ type SearchConfig struct {
 	Tavily        SearchTavilyConfig     `mapstructure:"tavily"`
 	Brave         SearchBraveConfig      `mapstructure:"brave"`
 	Google        SearchGoogleConfig     `mapstructure:"google"`
+	YouCom        SearchYouComConfig     `mapstructure:"youcom"`
 	Keenable      SearchKeenableConfig   `mapstructure:"keenable"`
 }
 
@@ -1254,6 +1257,12 @@ type SearchTavilyConfig struct {
 
 // SearchBraveConfig configures Brave search
 type SearchBraveConfig struct {
+	APIKey string `mapstructure:"api_key"`
+}
+
+// SearchYouComConfig configures You.com search. The API key is optional:
+// without one, the keyless free tier is used.
+type SearchYouComConfig struct {
 	APIKey string `mapstructure:"api_key"`
 }
 
@@ -2259,28 +2268,6 @@ func NormalizeVeniceAPIKey(apiKey string) string {
 	return apiKey
 }
 
-// GetConfigDir returns the XDG config directory for term-llm.
-// Uses $XDG_CONFIG_HOME if set, otherwise ~/.config
-func GetConfigDir() (string, error) {
-	if xdgHome := os.Getenv("XDG_CONFIG_HOME"); xdgHome != "" {
-		return filepath.Join(xdgHome, "term-llm"), nil
-	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(homeDir, ".config", "term-llm"), nil
-}
-
-// GetConfigPath returns the path where the config file should be located
-func GetConfigPath() (string, error) {
-	configDir, err := GetConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(configDir, "config.yaml"), nil
-}
-
 // GetDiagnosticsDir returns the XDG data directory for term-llm diagnostics.
 // Uses absolute $XDG_DATA_HOME if set, otherwise ~/.local/share. Returns
 // empty when neither resolves to an absolute path; never writes to the CWD.
@@ -2333,6 +2320,7 @@ var KnownAgentPreferenceKeys = map[string]bool{
 	"model":                true,
 	"tools_enabled":        true,
 	"tools_disabled":       true,
+	"mcp":                  true,
 	"shell_allow":          true,
 	"shell_auto_run":       true,
 	"spawn_max_parallel":   true,
@@ -2481,7 +2469,7 @@ func agentPreferenceValues(key, value string) ([]configValue, error) {
 		// Boolean values (case-insensitive)
 		lowerVal := strings.ToLower(value)
 		return []configValue{{key, lowerVal == "true" || value == "1" || lowerVal == "yes"}}, nil
-	case "tools_enabled", "tools_disabled", "shell_allow", "spawn_allowed_agents", "allowed_models":
+	case "tools_enabled", "tools_disabled", "shell_allow", "spawn_allowed_agents", "allowed_models", "mcp":
 		// Array values (comma-separated)
 		parts := []string{}
 		if value != "" {
@@ -2508,32 +2496,6 @@ func GetAgentPreference(agentName string) (AgentPreference, bool) {
 
 	pref, ok := cfg.Agents.Preferences[agentName]
 	return pref, ok
-}
-
-// ClearAgentPreferences removes all preferences for a specific agent from
-// config.yaml, dropping agents.preferences when it becomes empty.
-func ClearAgentPreferences(agentName string) error {
-	configPath, err := GetConfigPath()
-	if err != nil {
-		return err
-	}
-	if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
-		return nil // Nothing to clear
-	}
-	return editConfigFile(func(root *yaml.Node) (bool, error) {
-		agents := lookupMapping(root, "agents")
-		if agents == nil {
-			return false, nil
-		}
-		prefs := lookupMapping(agents, "preferences")
-		if prefs == nil || !deleteMappingKey(prefs, agentName) {
-			return false, nil
-		}
-		if len(prefs.Content) == 0 {
-			deleteMappingKey(agents, "preferences")
-		}
-		return true, nil
-	})
 }
 
 // SetServeTelegramConfig saves Telegram bot configuration into config.yaml,

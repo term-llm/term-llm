@@ -115,9 +115,9 @@ install:
   title: "Install and ask a first question."
   description: "Every release includes the browser workspace. There is nothing else to install."
   mac_download: "https://term-llm.com/mac/download"
-  homebrew: "brew install samsaffron/tap/term-llm"
-  shell: "curl -fsSL https://raw.githubusercontent.com/samsaffron/term-llm/main/install.sh | sh"
-  powershell: "irm https://raw.githubusercontent.com/samsaffron/term-llm/main/install.ps1 | iex"
+  homebrew: "brew install term-llm/tap/term-llm"
+  shell: "curl -fsSL https://raw.githubusercontent.com/term-llm/term-llm/main/install.sh | sh"
+  powershell: "irm https://raw.githubusercontent.com/term-llm/term-llm/main/install.ps1 | iex"
   trial: 'term-llm ask "Explain git rebase in three sentences"'
   caveat: "Set OPENROUTER_API_KEY to use OpenRouter’s free models, or pick another provider during setup. Using the Mac app? Ask in its window instead."
 community:

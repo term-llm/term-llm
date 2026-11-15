@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	mcpstart "github.com/samsaffron/term-llm/internal/app/runtime/mcpstart"
-	"github.com/samsaffron/term-llm/internal/llm/core"
-	"github.com/samsaffron/term-llm/internal/llm/engine"
-	"github.com/samsaffron/term-llm/internal/mcp"
-	mcpoauth "github.com/samsaffron/term-llm/internal/mcp/oauth"
-	"github.com/samsaffron/term-llm/internal/session"
-	"github.com/samsaffron/term-llm/internal/tooldiscovery"
+	mcpstart "github.com/term-llm/term-llm/internal/app/runtime/mcpstart"
+	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/engine"
+	"github.com/term-llm/term-llm/internal/mcp"
+	mcpoauth "github.com/term-llm/term-llm/internal/mcp/oauth"
+	"github.com/term-llm/term-llm/internal/session"
+	"github.com/term-llm/term-llm/internal/tooldiscovery"
 )
 
 const serveMCPStartupTimeout = 30 * time.Second
@@ -246,10 +246,10 @@ func (rt *serveRuntime) unregisterMCPServerToolsLocked(serverName string) {
 	if rt == nil || rt.engine == nil || rt.engine.Tools() == nil {
 		return
 	}
-	prefix := serverName + "__"
 	for _, spec := range rt.engine.Tools().AllSpecsIncludingDeferred() {
-		if strings.HasPrefix(spec.Name, prefix) {
-			rt.engine.UnregisterTool(spec.Name)
+		tool, _ := rt.engine.Tools().Get(spec.Name)
+		if remote, ok := tool.(*mcp.MCPTool); ok && strings.HasPrefix(remote.ToolOrigin().ID, serverName+"\x00") {
+			rt.engine.Tools().UnregisterIf(spec.Name, tool)
 		}
 	}
 }

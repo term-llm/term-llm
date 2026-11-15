@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/app/serve/wire"
-	"github.com/samsaffron/term-llm/internal/llm/core"
-	"github.com/samsaffron/term-llm/internal/session"
+	"github.com/term-llm/term-llm/internal/app/serve/wire"
+	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/session"
 )
 
 func (r *responseRun) complete(payload map[string]any, usage core.Usage, sessionUsage core.Usage) error {
@@ -154,6 +154,7 @@ func (r *responseRun) appendEventLocked(event string, payload map[string]any, te
 		}
 	}
 	if terminal {
+		r.revokeClientToolLeaseLocked("originating response ended")
 		payload["ended_at"] = r.endedAt
 		payload["final_rev"] = r.finalRev
 		payload["durable_handoff"] = r.durableHandoff

@@ -6,10 +6,10 @@ import (
 	"log"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
-	"github.com/samsaffron/term-llm/internal/llm/engine"
-	"github.com/samsaffron/term-llm/internal/session"
-	"github.com/samsaffron/term-llm/internal/tools"
+	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/engine"
+	"github.com/term-llm/term-llm/internal/session"
+	"github.com/term-llm/term-llm/internal/tools"
 )
 
 func (s *serveServer) executeResponseRun(runCtx context.Context, releaseReload, closeTask, cancel func(), runTimer *responseRunTimer, mgr *responseRunManager, runtime *serveRuntime, run *responseRun, stateful, replaceHistory bool, inputMessages []core.Message, llmReq core.Request, sessionID, respID, model string, created int64, options startResponseRunOptions) {
@@ -65,6 +65,16 @@ func (s *serveServer) executeResponseRun(runCtx context.Context, releaseReload, 
 	var clientToolRunner core.ClientToolRunner
 	if options.clientToolRunner != nil {
 		clientToolRunner = options.clientToolRunner(respID)
+		if provider, ok := clientToolRunner.(core.ClientToolLeaseProvider); ok {
+			run.mu.Lock()
+			run.clientToolLease = provider.ClientToolLease()
+			run.mu.Unlock()
+			if done, ok := clientToolRunner.(interface{ ResponseClientToolsDone() }); ok {
+				defer done.ResponseClientToolsDone()
+			} else if lease := provider.ClientToolLease(); lease != nil {
+				defer lease.Revoke("originating response execution ended")
+			}
+		}
 		runCtx = core.ContextWithClientToolRunner(runCtx, clientToolRunner)
 	}
 

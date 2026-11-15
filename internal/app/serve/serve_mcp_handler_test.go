@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/config"
-	"github.com/samsaffron/term-llm/internal/llm/core"
-	"github.com/samsaffron/term-llm/internal/llm/engine"
-	"github.com/samsaffron/term-llm/internal/llm/mockprovider"
-	internalmcp "github.com/samsaffron/term-llm/internal/mcp"
-	"github.com/samsaffron/term-llm/internal/session"
-	"github.com/samsaffron/term-llm/internal/testutil/mcptest"
+	"github.com/term-llm/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/engine"
+	"github.com/term-llm/term-llm/internal/llm/mockprovider"
+	internalmcp "github.com/term-llm/term-llm/internal/mcp"
+	"github.com/term-llm/term-llm/internal/session"
+	"github.com/term-llm/term-llm/internal/testutil/mcptest"
 )
 
 const runServeMCPHandlerTestServerEnv = mcptest.ChildEnv
@@ -441,7 +441,7 @@ func TestHandleSessionMCPPatchDisablesAndPersists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetOrCreate: %v", err)
 	}
-	rt.engine.Tools().Register(serveMCPFakeTool{name: "filesystem__read"})
+	rt.engine.Tools().Register(internalmcp.NewCatalogMCPTool(rt.mcpManager, internalmcp.CatalogTool{Server: "filesystem", OriginalName: "read", Name: "filesystem__read"}))
 	rt.mcpSetting = "filesystem"
 
 	req := httptest.NewRequest(http.MethodPatch, "/v1/sessions/sess_disable/mcp", strings.NewReader(`{"enabled":[]}`))
@@ -663,7 +663,7 @@ func TestHandleSessionMCPPatchKeepsAuthRequiredSelection(t *testing.T) {
 			}
 			// An old registry entry must not survive re-registering a server
 			// whose connection settled without a usable grant.
-			rt.engine.RegisterTool(serveMCPFakeTool{name: "protected__stale"})
+			rt.engine.RegisterTool(internalmcp.NewCatalogMCPTool(rt.mcpManager, internalmcp.CatalogTool{Server: "protected", OriginalName: "stale", Name: "protected__stale"}))
 			rt.registerMCPToolsForServersLocked(selection)
 			if _, ok := rt.engine.Tools().Get("protected__stale"); ok {
 				t.Fatal("auth-required server retained stale tools")

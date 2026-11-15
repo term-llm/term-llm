@@ -19,7 +19,7 @@ One line per root-module package, generated from package doc comments by `make d
 - `internal/agents` — provides named configuration bundles for term-llm.
 - `internal/agents/gist` — provides GitHub Gist operations through the gh CLI.
 - `internal/agyproxy` — is the loopback HTTPS proxy between agy and Cloud Code.
-- `internal/app/agent` — holds the agent model-selection logic extracted from cmd.
+- `internal/app/agent` — holds agent preference commands and model-selection logic extracted from cmd.
 - `internal/app/ask` — implements the `term-llm ask` command: prompt input, model execution and persistence.
 - `internal/app/auth` — implements `term-llm auth` login, status and logout for OAuth providers.
 - `internal/app/chat` — runs the interactive `term-llm chat` TUI: orchestration, sessions, handover and reload.
@@ -84,7 +84,7 @@ One line per root-module package, generated from package doc comments by `make d
 - `internal/config` — defines term-llm's persisted settings and resolves providers, models and credentials.
 - `internal/contain` — manages named Docker Compose workspaces for `term-llm contain`.
 - `internal/copilot` — reads GitHub Copilot AI-credit billing usage for the usage command.
-- `internal/credentials` — stores and refreshes provider OAuth credentials under the config directory.
+- `internal/credentials` — stores and refreshes native provider OAuth credentials in a configurable directory.
 - `internal/debuglog` — reads, formats, exports and searches term-llm debug-log sessions.
 - `internal/diagnostics` — writes edit-retry diagnostic dumps for failed tool edits.
 - `internal/diff` — provides shared constants for diff handling across packages.
@@ -97,6 +97,7 @@ One line per root-module package, generated from package doc comments by `make d
 - `internal/filelock` — takes cross-process advisory file locks on shared state files.
 - `internal/fileprivacy` — owns owner-only filesystem policy for application state: private file/directory modes, permission checks, and atomic private-file creation.
 - `internal/filetrack` — records file changes made by agent tools so sessions can expose a cumulative diff (baseline = file state at first touch in a session).
+- `internal/filetrack/shellscope` — performs bounded filesystem and Git inspection for shell file-change tracking without granting permission or attributing authored work.
 - `internal/formatutil` — provides dependency-light shared display formatting.
 - `internal/gitcommit` — provides the host-owned Git transaction used by native commit workflows.
 - `internal/gitdiff` — exposes structured staged and working-tree changes for the web Changes panel.

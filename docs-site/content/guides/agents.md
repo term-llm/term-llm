@@ -103,6 +103,7 @@ term-llm agents export gist my-reviewer      # Publish the copied agent as a gis
 term-llm agents import gist <gist-url-or-id> # Import an agent from a gist
 term-llm agents set reviewer provider=openai model=gpt-5.2
 term-llm agents get reviewer
+term-llm agents clear reviewer mcp           # Restore just the definition's MCP defaults
 term-llm agents clear reviewer               # Clear ALL preferences for reviewer
 ```
 
@@ -133,11 +134,40 @@ term-llm agents copy developer developer      # copy built-in developer into you
 term-llm agents copy developer my-developer   # fork it under a new name instead
 ```
 
-Per-agent preferences in your main config can override provider/model choices without copying an agent bundle:
+Per-agent preferences in your main config can override settings without copying an agent bundle:
 
 ```bash
 term-llm agents set reviewer provider=openai model=gpt-5.2
 ```
+
+### Default MCP servers per agent
+
+Configuring an MCP server does not automatically enable it. To opt in to starting particular servers whenever an agent is launched, set its `mcp` preference in `$XDG_CONFIG_HOME/term-llm/config.yaml` (otherwise `~/.config/term-llm/config.yaml`):
+
+```yaml
+agents:
+  preferences:
+    developer:
+      mcp: [github, playwright]
+    reviewer:
+      mcp: []
+```
+
+Server names refer to connections configured in `mcp.json`. This preference **replaces**, rather than adds to, the agent definition's `mcp` list. Omit the preference to inherit the definition's defaults.
+
+```bash
+term-llm agents set developer mcp=github,playwright  # Replace the default list
+term-llm agents set developer mcp=                  # Start no MCPs by default
+term-llm agents clear developer mcp                # Restore the definition's defaults
+```
+
+`mcp=` saves `mcp: []`: **no MCPs start by default**. Defaults neither grant nor deny access: [MCP restrictions](/guides/mcp-servers/#restrict-servers-to-trusted-agents) still apply, and permitted servers can be enabled explicitly with `--mcp` or the session picker. Missing or denied defaults are dropped with a warning.
+
+`term-llm agents clear developer mcp` removes only the MCP override, leaving model, tool, and other preferences unchanged.
+
+An explicit `--mcp` selection overrides these defaults. Resumed sessions keep their saved selection unless explicitly overridden. Defaults also apply to subagents, subject to the host's capability restrictions.
+
+### Model preferences
 
 The special agent model value `fast` resolves through the active provider's fast-model settings: `providers.<active>.fast_model`, or `providers.<active>.fast_provider` plus `fast_model` when the lightweight model should run on a different provider key. A provider with no fast model of its own (for example a custom `base_url` endpoint without `fast_model`) uses the `default_provider`'s fast model and provider. It is not sent to the provider as a literal model named `fast`.
 

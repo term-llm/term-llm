@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/core"
 )
 
 const (
@@ -359,4 +359,14 @@ func isBlockedReadURLIP(ip net.IP) bool {
 		ip.IsLinkLocalMulticast() ||
 		ip.IsUnspecified() ||
 		ip.IsMulticast()
+}
+
+// CodeModeExposure retains the same URL validation and fetch bounds in scripts.
+func (*ReadURLTool) CodeModeExposure() core.CodeModeExposure {
+	return core.CodeModeExposure{Allowed: true}
+}
+
+// ToolOrigin identifies the trusted local implementation, not its public spelling.
+func (*ReadURLTool) ToolOrigin() core.ToolOrigin {
+	return core.ToolOrigin{Class: core.ToolOriginWeb, ID: "read_url"}
 }

@@ -5,14 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"github.com/samsaffron/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/core"
 	"mime"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/appdata"
-	"github.com/samsaffron/term-llm/internal/runtimeoutput"
+	"github.com/term-llm/term-llm/internal/appdata"
+	"github.com/term-llm/term-llm/internal/runtimeoutput"
 )
 
 // applyToolOutputTruncation applies global and compaction truncation limits
@@ -393,6 +393,7 @@ func (e *Engine) prepareRequestContext(ctx context.Context, req *core.Request) {
 		if !ok {
 			continue
 		}
+		before := e.tools.AllSpecs()
 		messages, err := contextTool.PrepareRequestContext(ctx, req.SessionID, req.Messages)
 		if err != nil {
 			// Restored tool state is an optional context enhancement. A stale or
@@ -401,5 +402,11 @@ func (e *Engine) prepareRequestContext(ctx context.Context, req *core.Request) {
 			continue
 		}
 		req.Messages = messages
+		// Context preparation may register skill capabilities before the run starts.
+		for _, added := range e.tools.AllSpecs() {
+			if !hasToolNamed(before, added.Name) && !hasToolNamed(req.Tools, added.Name) && e.IsToolAllowed(added.Name) {
+				req.Tools = append(req.Tools, added)
+			}
+		}
 	}
 }

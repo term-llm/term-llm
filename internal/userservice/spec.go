@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/fileprivacy"
+	"github.com/term-llm/term-llm/internal/fileprivacy"
 )
 
 const Version = 1
@@ -68,7 +68,7 @@ func (s Spec) Validate() error {
 
 func EnvironmentKey(k string) bool {
 	switch k {
-	case "HOME", "PATH", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME":
+	case "HOME", "PATH", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "TERM_LLM_CREDENTIALS_DIR":
 		return true
 	}
 	return false

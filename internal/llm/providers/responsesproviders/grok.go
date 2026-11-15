@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/config"
-	"github.com/samsaffron/term-llm/internal/credentials"
-	"github.com/samsaffron/term-llm/internal/grokprotocol"
-	"github.com/samsaffron/term-llm/internal/oauth"
-	"github.com/samsaffron/term-llm/internal/runtimeoutput"
-	"github.com/samsaffron/term-llm/internal/signal"
+	"github.com/term-llm/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/credentials"
+	"github.com/term-llm/term-llm/internal/grokprotocol"
+	"github.com/term-llm/term-llm/internal/oauth"
+	"github.com/term-llm/term-llm/internal/runtimeoutput"
+	"github.com/term-llm/term-llm/internal/signal"
 	"golang.org/x/term"
 )
 
@@ -333,7 +333,7 @@ func refreshGrokSession(ctx context.Context, creds *credentials.GrokCredentials,
 	}
 	if err := credentials.RefreshGrokCredentialsWithClient(ctx, creds, force, grokOAuthClient); err != nil {
 		if errors.Is(err, oauth.ErrGrokRefreshTokenInvalid) {
-			if clearErr := credentials.ClearGrokCredentialsIfRefreshToken(failedRefreshToken); clearErr != nil {
+			if clearErr := credentials.ClearCredentialsAfterRefresh(err, failedRefreshToken); clearErr != nil {
 				return fmt.Errorf("%w; clear stale Grok credentials: %v; run 'term-llm auth login grok'", err, clearErr)
 			}
 			_ = clearGrokModelsCache()

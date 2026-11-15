@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/samsaffron/term-llm/internal/mcp"
+	"github.com/term-llm/term-llm/internal/mcp"
 )
 
 func TestDecodeSearchInputSelectorHandling(t *testing.T) {
@@ -137,5 +137,12 @@ func TestSearchToolPreviewPrefersExactNames(t *testing.T) {
 	preview := (&SearchTool{}).Preview(json.RawMessage(`{"query":"list workflows","tool_names":["discourse_list_workflows"]}`))
 	if want := "Loading MCP tools: discourse_list_workflows"; preview != want {
 		t.Fatalf("Preview() = %q, want %q", preview, want)
+	}
+}
+
+func TestSearchToolCodeModeExposureDirectOnly(t *testing.T) {
+	tool := &SearchTool{}
+	if exposure := tool.CodeModeExposure(); exposure.Allowed || exposure.Reason != "run_scoped_discovery" {
+		t.Fatalf("planner exception must not become a script grant: %+v", exposure)
 	}
 }

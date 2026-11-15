@@ -1408,6 +1408,8 @@ const MessageRow = memo(function MessageRow({
               resolveMedia={resolveMedia}
               onMedia={media}
             />
+          ) : message.role === 'user' ? (
+            <Markdown value={message.content} variant="user" />
           ) : (
             <div class="message-text">{message.content}</div>
           ))}
@@ -1821,7 +1823,9 @@ export function Transcript() {
                     key={message.clientMessageId || message.id}
                     message={message}
                     streaming={messageStreaming}
-                    responseText={context?.responseText || message.content}
+                    responseText={
+                      context?.copyTarget ? context.responseText || message.content : ''
+                    }
                     copyTarget={context?.copyTarget === true}
                     bylineAuthor={
                       localGap && run.messages?.[0] === message

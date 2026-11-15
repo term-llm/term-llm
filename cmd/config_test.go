@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/samsaffron/term-llm/internal/cache"
-	"github.com/samsaffron/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/cache"
+	"github.com/term-llm/term-llm/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -297,6 +297,17 @@ func TestSearchProviderConfigValueCompletionsIncludeParallel(t *testing.T) {
 	got := configValueCompletions("search.provider", "par")
 	if !reflect.DeepEqual(got, []string{"parallel"}) {
 		t.Fatalf("configValueCompletions(search.provider, par) = %v, want [parallel]", got)
+	}
+}
+
+func TestSearchProviderConfigValueCompletionsIncludeKeylessProviders(t *testing.T) {
+	for _, provider := range []string{"keenable", "youcom"} {
+		t.Run(provider, func(t *testing.T) {
+			got := configValueCompletions("search.provider", provider[:3])
+			if !slices.Equal(got, []string{provider}) {
+				t.Fatalf("search provider completions = %v, want [%s]", got, provider)
+			}
+		})
 	}
 }
 

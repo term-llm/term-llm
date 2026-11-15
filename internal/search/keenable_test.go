@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/samsaffron/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/config"
 )
 
 func newKeenableTestServer(t *testing.T, check func(r *http.Request, body keenableRequest)) *httptest.Server {
@@ -126,6 +126,41 @@ func TestKeenableFactoryNeedsNoKey(t *testing.T) {
 	}
 	if _, ok := s.(*KeenableSearcher); !ok {
 		t.Fatalf("NewSearcher() = %T, want *KeenableSearcher", s)
+	}
+}
+
+func TestKeenableFactoryCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name, configured, env, want string
+	}{
+		{name: "environment", env: "env-key", want: "env-key"},
+		{name: "configured", configured: "config-key", env: "env-key", want: "config-key"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("KEENABLE_API_KEY", tc.env)
+			cfg := &config.Config{}
+			cfg.Search.Provider = "keenable"
+			cfg.Search.Keenable.APIKey = tc.configured
+			s, err := NewSearcher(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := s.(*KeenableSearcher).apiKey; got != tc.want {
+				t.Fatalf("apiKey = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestKeenableFactoryCredentialError(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Search.Provider = "keenable"
+	cfg.Search.Keenable.APIKey = "file://" + t.TempDir() + "/missing-key"
+	if err := Available(cfg); err != nil {
+		t.Fatalf("Available must not resolve credentials: %v", err)
+	}
+	if _, err := NewSearcher(cfg); err == nil || !strings.Contains(err.Error(), "search.keenable.api_key") {
+		t.Fatalf("NewSearcher error = %v, want credential resolution error", err)
 	}
 }
 

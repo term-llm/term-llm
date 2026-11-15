@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/core"
 )
 
 // MockTool is a configurable tool for testing.
 type MockTool struct {
 	SpecData    core.ToolSpec
+	Exposure    core.CodeModeExposure
 	ExecuteFn   func(ctx context.Context, args json.RawMessage) (core.ToolOutput, error)
 	PreviewFn   func(args json.RawMessage) string
 	Invocations []MockToolInvocation
@@ -91,4 +92,10 @@ func (m *MockTool) LastArgs() json.RawMessage {
 		return nil
 	}
 	return m.Invocations[len(m.Invocations)-1].Args
+}
+
+// CodeModeExposure lets each fixture explicitly opt into script composition.
+// The default remains denied, just like an undeclared production tool.
+func (m *MockTool) CodeModeExposure() core.CodeModeExposure {
+	return m.Exposure
 }

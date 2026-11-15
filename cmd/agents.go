@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/agents"
-	"github.com/samsaffron/term-llm/internal/agents/gist"
-	"github.com/samsaffron/term-llm/internal/config"
 	"github.com/spf13/cobra"
+	"github.com/term-llm/term-llm/internal/agents"
+	"github.com/term-llm/term-llm/internal/agents/gist"
+	"github.com/term-llm/term-llm/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -146,12 +146,15 @@ Preferences are stored in your config file and applied on top of
 the agent's built-in configuration. This lets you customize agents
 without copying them.
 
+Use "term-llm agents clear <agent> mcp" to restore the agent definition's defaults.
+
 Valid preference keys:
   provider, model           - Override LLM provider/model
   max_turns                 - Override max conversation turns
   search                    - Enable/disable web search (true/false)
   tools_enabled             - Comma-separated list of enabled tools
   tools_disabled            - Comma-separated list of disabled tools
+  mcp                       - Replace default MCP servers (comma-separated; empty disables defaults)
   shell_allow               - Comma-separated shell patterns to allow
   shell_auto_run            - Auto-approve shell commands (true/false)
   spawn_max_parallel        - Max parallel sub-agents
@@ -164,6 +167,8 @@ Examples:
   term-llm agents set reviewer provider=gemini model=gemini-2.5-pro
   term-llm agents set developer max_turns=50
   term-llm agents set codebase search=true
+  term-llm agents set developer mcp=github,playwright
+  term-llm agents set reviewer mcp=
   term-llm agents set developer allowed_models=chatgpt:*,claude-bin:*`,
 	Args:              cobra.MinimumNArgs(2),
 	RunE:              runAgentsPrefSet,
@@ -179,11 +184,18 @@ var agentsPrefGetCmd = &cobra.Command{
 }
 
 var agentsPrefClearCmd = &cobra.Command{
-	Use:               "clear <agent>",
-	Short:             "Clear all preferences for an agent",
-	Args:              cobra.ExactArgs(1),
+	Use:   "clear <agent> [key...]",
+	Short: "Clear selected or all preferences for an agent",
+	Long: `Remove selected preference overrides, restoring the agent definition's defaults.
+Omit keys to clear ALL preferences for the agent.
+
+Examples:
+  term-llm agents clear developer mcp        # Restore the agent's default MCP list
+  term-llm agents clear developer model mcp  # Clear just these two overrides
+  term-llm agents clear developer            # Clear ALL overrides`,
+	Args:              cobra.MinimumNArgs(1),
 	RunE:              runAgentsPrefClear,
-	ValidArgsFunction: agentNameCompletion,
+	ValidArgsFunction: agentPrefClearCompletion,
 }
 
 func init() {
@@ -426,21 +438,6 @@ func showAgentTools(agent *agents.Agent) {
 
 	if agent.MaxTurns > 0 {
 		fmt.Printf("Max turns: %d\n", agent.MaxTurns)
-	}
-}
-
-func showAgentMCP(agent *agents.Agent) {
-	// MCP servers
-	if len(agent.MCP) > 0 {
-		fmt.Println()
-		fmt.Println("MCP servers:")
-		for _, m := range agent.MCP {
-			if m.Command != "" {
-				fmt.Printf("  - %s: %s\n", m.Name, m.Command)
-			} else {
-				fmt.Printf("  - %s\n", m.Name)
-			}
-		}
 	}
 }
 
@@ -697,6 +694,7 @@ func agentPrefSetCompletion(cmd *cobra.Command, args []string, toComplete string
 		"search=",
 		"tools_enabled=",
 		"tools_disabled=",
+		"mcp=",
 		"shell_allow=",
 		"shell_auto_run=",
 		"spawn_max_parallel=",
@@ -757,80 +755,6 @@ func runAgentsPrefSet(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	return nil
-}
-
-func runAgentsPrefGet(cmd *cobra.Command, args []string) error {
-	agentName := args[0]
-
-	pref, found := config.GetAgentPreference(agentName)
-	if !found {
-		fmt.Printf("No preferences set for agent '%s'\n", agentName)
-		return nil
-	}
-
-	fmt.Printf("Preferences for '%s':\n", agentName)
-
-	// Model preferences
-	if pref.Provider != "" {
-		fmt.Printf("  provider: %s\n", pref.Provider)
-	}
-	if pref.Model != "" {
-		fmt.Printf("  model: %s\n", pref.Model)
-	}
-
-	// Tool configuration
-	if len(pref.ToolsEnabled) > 0 {
-		fmt.Printf("  tools_enabled: %s\n", strings.Join(pref.ToolsEnabled, ", "))
-	}
-	if len(pref.ToolsDisabled) > 0 {
-		fmt.Printf("  tools_disabled: %s\n", strings.Join(pref.ToolsDisabled, ", "))
-	}
-
-	// Shell settings
-	if len(pref.ShellAllow) > 0 {
-		fmt.Printf("  shell_allow: %s\n", strings.Join(pref.ShellAllow, ", "))
-	}
-	if pref.ShellAutoRun != nil {
-		fmt.Printf("  shell_auto_run: %v\n", *pref.ShellAutoRun)
-	}
-
-	// Spawn settings
-	if pref.SpawnMaxParallel != nil {
-		fmt.Printf("  spawn_max_parallel: %d\n", *pref.SpawnMaxParallel)
-	}
-	if pref.SpawnMaxDepth != nil {
-		fmt.Printf("  spawn_max_depth: %d\n", *pref.SpawnMaxDepth)
-	}
-	if pref.SpawnTimeout != nil {
-		fmt.Printf("  spawn_timeout: %d\n", *pref.SpawnTimeout)
-	}
-	if len(pref.SpawnAllowedAgents) > 0 {
-		fmt.Printf("  spawn_allowed_agents: %s\n", strings.Join(pref.SpawnAllowedAgents, ", "))
-	}
-	if len(pref.AllowedModels) > 0 {
-		fmt.Printf("  allowed_models: %s\n", strings.Join(pref.AllowedModels, ", "))
-	}
-
-	// Behavior
-	if pref.MaxTurns != nil {
-		fmt.Printf("  max_turns: %d\n", *pref.MaxTurns)
-	}
-	if pref.Search != nil {
-		fmt.Printf("  search: %v\n", *pref.Search)
-	}
-
-	return nil
-}
-
-func runAgentsPrefClear(cmd *cobra.Command, args []string) error {
-	agentName := args[0]
-
-	if err := config.ClearAgentPreferences(agentName); err != nil {
-		return fmt.Errorf("clear preferences: %w", err)
-	}
-
-	fmt.Printf("Cleared preferences for '%s'\n", agentName)
 	return nil
 }
 

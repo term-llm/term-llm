@@ -3,7 +3,7 @@ package search
 import (
 	"fmt"
 
-	"github.com/samsaffron/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/config"
 )
 
 // NewSearcher creates a Searcher based on the config.
@@ -94,18 +94,26 @@ func NewSearcher(cfg *config.Config) (Searcher, error) {
 		return NewGoogleSearcher(apiKey, cx, nil), nil
 
 	case "keenable":
-		// Works without a key (keyless public endpoint); KEENABLE_API_KEY is optional.
+		// Works without a key; KEENABLE_API_KEY is optional.
 		apiKey, err := cfg.Search.KeenableKey().Resolve()
 		if err != nil {
 			return nil, fmt.Errorf("search.keenable.api_key: %w", err)
 		}
 		return NewKeenableSearcher(apiKey, nil), nil
 
+	case "youcom":
+		// Works without a key (free keyless tier); YDC_API_KEY is optional.
+		apiKey, err := cfg.Search.YouComKey().Resolve()
+		if err != nil {
+			return nil, fmt.Errorf("search.youcom.api_key: %w", err)
+		}
+		return NewYouComSearcher(apiKey, nil), nil
+
 	case "duckduckgo":
 		return NewDuckDuckGoLite(nil), nil
 
 	default:
-		return nil, fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, keenable, duckduckgo)", provider)
+		return nil, fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, duckduckgo)", provider)
 	}
 }
 
@@ -146,10 +154,10 @@ func Available(cfg *config.Config) error {
 		if !cfg.Search.GoogleCXRef().Configured() {
 			return fmt.Errorf("google search requires GOOGLE_SEARCH_CX (Custom Search Engine ID)")
 		}
-	case "exa_mcp", "keenable", "duckduckgo":
+	case "exa_mcp", "youcom", "keenable", "duckduckgo":
 		// No credentials required.
 	default:
-		return fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, keenable, duckduckgo)", provider)
+		return fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, duckduckgo)", provider)
 	}
 	return nil
 }

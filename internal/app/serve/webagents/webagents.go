@@ -6,12 +6,12 @@ import (
 	"io"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/agents"
-	"github.com/samsaffron/term-llm/internal/app/runtime/mcpstart"
-	"github.com/samsaffron/term-llm/internal/config"
-	"github.com/samsaffron/term-llm/internal/llm/engine"
-	"github.com/samsaffron/term-llm/internal/mcp"
-	"github.com/samsaffron/term-llm/internal/tools"
+	"github.com/term-llm/term-llm/internal/agents"
+	"github.com/term-llm/term-llm/internal/app/runtime/mcpstart"
+	"github.com/term-llm/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/llm/engine"
+	"github.com/term-llm/term-llm/internal/mcp"
+	"github.com/term-llm/term-llm/internal/tools"
 )
 
 // Settings is the Web UI-only agent policy resolved once at serve startup.
@@ -140,16 +140,21 @@ func DraftApprovalActions(cfg *config.Config, toolsFlag string, toolsSet bool, m
 	if err != nil {
 		return nil
 	}
-	list, err := registry.List()
+	registry.SetPreferences(cfg.Agents.Preferences)
+	names, err := registry.ListNames()
 	if err != nil {
 		return nil
 	}
 	mcpConfig, mcpKnown := loadMCPConfig()
 	vision := visionRoutingConfigured(cfg)
-	for _, agent := range list {
+	for _, name := range names {
+		agent, err := registry.Get(name)
+		if err != nil {
+			continue
+		}
 		governed, known := draftAgentApprovalActions(cfg, agent, toolsFlag, toolsSet, mcpFlag, mcpConfig, mcpKnown)
 		if known {
-			actions[agent.Name] = governed || vision
+			actions[name] = governed || vision
 		}
 	}
 	governed, known := draftAgentApprovalActions(cfg, nil, toolsFlag, toolsSet, mcpFlag, mcpConfig, mcpKnown)

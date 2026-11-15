@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/credentials"
-	"github.com/samsaffron/term-llm/internal/oauth"
+	"github.com/term-llm/term-llm/internal/credentials"
+	"github.com/term-llm/term-llm/internal/oauth"
 )
 
 type chatGPTTranscribeRequest struct {
@@ -103,7 +103,7 @@ func setupChatGPTTranscribeTest(t *testing.T, handler func(w http.ResponseWriter
 		}
 		return nil
 	}
-	clearChatGPTTranscribeCreds = func(refreshToken string) error {
+	clearChatGPTTranscribeCreds = func(_ error, refreshToken string) error {
 		fx.cleared = append(fx.cleared, refreshToken)
 		return nil
 	}

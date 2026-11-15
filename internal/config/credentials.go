@@ -308,6 +308,11 @@ func (c SearchConfig) KeenableKey() CredentialRef {
 	return Cred(c.Keenable.APIKey, "KEENABLE_API_KEY")
 }
 
+// YouComKey returns the optional You.com search credential.
+func (c SearchConfig) YouComKey() CredentialRef {
+	return Cred(c.YouCom.APIKey, "YDC_API_KEY")
+}
+
 // TavilyKey returns the Tavily search credential.
 func (c SearchConfig) TavilyKey() CredentialRef {
 	return Cred(c.Tavily.APIKey, "TAVILY_API_KEY")

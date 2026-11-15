@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/config"
-	"github.com/samsaffron/term-llm/internal/runtimeoutput"
+	"github.com/term-llm/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/runtimeoutput"
 )
 
 // PermissionError identifies an MCP server denied by application policy.
@@ -120,6 +120,9 @@ func (m *Manager) revokeDeniedServers() {
 }
 
 func (m *Manager) policyError(name string) error {
+	if IsReservedServerName(name) {
+		return fmt.Errorf("MCP server name %q is reserved for client tool routing; rename the server", name)
+	}
 	m.policy.mu.Lock()
 	defer m.policy.mu.Unlock()
 	if !m.policy.loaded {

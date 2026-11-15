@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/config"
-	"github.com/samsaffron/term-llm/internal/runtimeoutput"
+	"github.com/term-llm/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/runtimeoutput"
 	"gopkg.in/yaml.v3"
 )
 
@@ -600,6 +600,14 @@ func (a *Agent) Merge(pref config.AgentPreference) {
 	if len(pref.ToolsDisabled) > 0 {
 		a.Tools.Disabled = pref.ToolsDisabled
 		a.Tools.Enabled = nil // Clear enabled if disabled is set
+	}
+
+	// MCP defaults: replace with names from mcp.json, never commands or access policy.
+	if pref.MCP != nil {
+		a.MCP = make([]MCPConfig, len(*pref.MCP))
+		for i, name := range *pref.MCP {
+			a.MCP[i] = MCPConfig{Name: name}
+		}
 	}
 
 	// Shell settings - append allow patterns, replace auto_run

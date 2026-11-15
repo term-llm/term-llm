@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/samsaffron/term-llm/internal/llm/mockprovider"
+	"github.com/term-llm/term-llm/internal/llm/mockprovider"
+	"os"
 	"sync"
 	"testing"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/core"
 )
 
 // serviceTierFast mirrors llm.ServiceTierFast, which engine cannot import.
@@ -55,11 +56,13 @@ type testNonRecoverableStreamError struct{ Err error }
 func (e *testNonRecoverableStreamError) Error() string { return e.Err.Error() }
 func (e *testNonRecoverableStreamError) Unwrap() error { return e.Err }
 
-func init() {
+func TestMain(m *testing.M) {
+	isNonRecoverable := env.IsNonRecoverableStreamError
 	env.IsNonRecoverableStreamError = func(err error) bool {
 		var target *testNonRecoverableStreamError
-		return errors.As(err, &target)
+		return errors.As(err, &target) || (isNonRecoverable != nil && isNonRecoverable(err))
 	}
+	os.Exit(m.Run())
 }
 
 func testWebSearchToolSpec() core.ToolSpec {

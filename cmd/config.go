@@ -10,11 +10,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/config"
-	"github.com/samsaffron/term-llm/internal/llm"
-	"github.com/samsaffron/term-llm/internal/llm/providers/opencompat"
-	"github.com/samsaffron/term-llm/internal/mcp"
 	"github.com/spf13/cobra"
+	"github.com/term-llm/term-llm/internal/config"
+	"github.com/term-llm/term-llm/internal/llm"
+	"github.com/term-llm/term-llm/internal/llm/providers/opencompat"
+	"github.com/term-llm/term-llm/internal/mcp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1185,7 +1185,7 @@ func configValueCompletions(key, toComplete string) []string {
 		return completions
 
 	case "search.provider":
-		providers := []string{"duckduckgo", "exa", "exa_mcp", "perplexity", "parallel", "tavily", "brave", "google", "keenable"}
+		providers := []string{"duckduckgo", "exa", "exa_mcp", "perplexity", "parallel", "tavily", "brave", "google", "youcom", "keenable"}
 		var completions []string
 		for _, p := range providers {
 			if strings.HasPrefix(p, toComplete) {

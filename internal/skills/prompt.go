@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/runtimeoutput"
+	"github.com/term-llm/term-llm/internal/runtimeoutput"
 )
 
 // GenerateAvailableSkillsXML generates the <available_skills> prompt injection.
@@ -29,7 +29,7 @@ How to invoke:
 
 Usage notes:
 - Only use skills listed below or found via search_skills
-- Do not invoke a skill that is already loaded in your context
+- Avoid redundant activation of loaded skills; explicit reloads are allowed
 </usage>
 
 `)

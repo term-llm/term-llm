@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
-	"github.com/samsaffron/term-llm/internal/llm/engine"
-	"github.com/samsaffron/term-llm/internal/restart"
-	"github.com/samsaffron/term-llm/internal/runtimeoutput"
-	"github.com/samsaffron/term-llm/internal/session"
+	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/engine"
+	"github.com/term-llm/term-llm/internal/restart"
+	"github.com/term-llm/term-llm/internal/runtimeoutput"
+	"github.com/term-llm/term-llm/internal/session"
 )
 
 // AgentContinuation is implemented by hosts that can resume a persisted child
@@ -491,14 +491,17 @@ func (m *agentManager) wait(ctx context.Context, e *agentEntry, budget time.Dura
 	}
 	timer := time.NewTimer(budget)
 	defer timer.Stop()
-	select {
-	case <-e.done:
-		return true
-	case <-timer.C:
-		return false
-	case <-ctx.Done():
-		return false
-	}
+	settled, err := core.WithCodeModeWait(ctx, func() (bool, error) {
+		select {
+		case <-e.done:
+			return true, nil
+		case <-timer.C:
+			return false, nil
+		case <-ctx.Done():
+			return false, ctx.Err()
+		}
+	})
+	return settled && err == nil
 }
 
 func (m *agentManager) detachInitial(e *agentEntry) {

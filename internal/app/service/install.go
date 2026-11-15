@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samsaffron/term-llm/internal/filelock"
-	"github.com/samsaffron/term-llm/internal/passkeyauth"
-	"github.com/samsaffron/term-llm/internal/userservice"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	"github.com/term-llm/term-llm/internal/filelock"
+	"github.com/term-llm/term-llm/internal/passkeyauth"
+	"github.com/term-llm/term-llm/internal/userservice"
 	"golang.org/x/term"
 )
 
@@ -264,6 +264,11 @@ func (a App) buildServiceInstallSpec(e serviceEnvironment, kind string, args []s
 		v := spec.Environment[key]
 		if v != "" && !filepath.IsAbs(v) {
 			return userservice.Spec{}, fmt.Errorf("%s must be absolute", key)
+		}
+	}
+	if old == nil || opts.RefreshEnv {
+		if err := normalizeServiceCredentialsDir(spec.Environment); err != nil {
+			return userservice.Spec{}, err
 		}
 	}
 	spec.Directory = e.home

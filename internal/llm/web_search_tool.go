@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
-	"github.com/samsaffron/term-llm/internal/search"
+	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/search"
 )
 
 // WebSearchTool executes searches through a Searcher.
@@ -69,4 +69,14 @@ func (t *WebSearchTool) Execute(ctx context.Context, args json.RawMessage) (core
 		b.WriteString("\n")
 	}
 	return core.TextOutput(strings.TrimSuffix(b.String(), "\n")), nil
+}
+
+// CodeModeExposure allows composition without changing search authorization.
+func (*WebSearchTool) CodeModeExposure() core.CodeModeExposure {
+	return core.CodeModeExposure{Allowed: true}
+}
+
+// ToolOrigin identifies the trusted local implementation, not its public spelling.
+func (*WebSearchTool) ToolOrigin() core.ToolOrigin {
+	return core.ToolOrigin{Class: core.ToolOriginWeb, ID: "web_search"}
 }

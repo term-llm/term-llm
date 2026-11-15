@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/samsaffron/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/core"
 )
 
 func (s *serveServer) streamUIResponses(w http.ResponseWriter, r *http.Request, runtime *serveRuntime, stateful bool, replaceHistory bool, inputMessages []core.Message, llmReq core.Request, sessionID string, previousResponseID string, resetResponseIDsOnSuccess bool, modelSwap *responseModelSwapExecution, idempotencyKey, idempotencyScope, requestFingerprint string, onDone, onAdmissionDone func()) {
@@ -26,8 +26,10 @@ func (s *serveServer) streamUIResponses(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 
-	s.streamResponseRun(r.Context(), w, runtime, stateful, replaceHistory, inputMessages, llmReq, sessionID, startResponseRunOptions{
-		clientToolRunner:          s.typedClientToolRunner(runtime, llmReq.Tools),
+	ctx, runner, closeForeground := s.typedForegroundClientToolRunner(r.Context(), runtime, llmReq.Tools, true)
+	defer closeForeground()
+	s.streamResponseRun(ctx, w, runtime, stateful, replaceHistory, inputMessages, llmReq, sessionID, startResponseRunOptions{
+		clientToolRunner:          runner,
 		previousResponseID:        previousResponseID,
 		uiSession:                 true,
 		resetResponseIDsOnSuccess: resetResponseIDsOnSuccess,

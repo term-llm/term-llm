@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/samsaffron/term-llm/internal/providerspec"
+	"github.com/term-llm/term-llm/internal/providerspec"
 )
 
 // KeySpec describes a user-visible configuration key. New user-visible
@@ -218,6 +218,7 @@ func DefaultLinkedDevicesICEServers() []LinkedDevicesICEServerConfig {
 
 var keySpecs = []KeySpec{
 	def("default_provider", DefaultConfigProvider),
+	{Path: "credentials_dir", Default: "", HasDefault: true, Description: "Native ChatGPT/Grok/Copilot OAuth directory; TERM_LLM_CREDENTIALS_DIR overrides; empty uses the config directory", ShowInConfig: true, ResetTemplate: true},
 	def("provider_discovery", ProviderDiscoveryAuto),
 	def("auto_compact", DefaultAutoCompact),
 	def("memory.secrets.disable", []string{}, described("Built-in memory secret detector names to disable; all disables every built-in")),
@@ -391,6 +392,7 @@ var keySpecs = []KeySpec{
 	optional("search.brave.api_key", sensitive()),
 	optional("search.google.api_key", sensitive()),
 	optional("search.google.cx"),
+	optional("search.youcom.api_key", sensitive()),
 	optional("search.keenable.api_key", sensitive()),
 
 	def("classify.default_provider", "typesafe"),

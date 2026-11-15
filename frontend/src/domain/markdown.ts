@@ -1,11 +1,31 @@
 import DOMPurify from 'dompurify';
-import { marked, Renderer } from 'marked';
+import { marked, Marked, Renderer } from 'marked';
 import { findStableMarkdownBoundary, isInCodeBlockFast } from './markdown-streaming';
 
 import { escapeHTML, externalLink, markdownHooks, scrollableTable } from './markdown-hooks';
 import { audioMediaHTML, trustedPublishedMediaURL } from './audio-media';
 
 marked.use({ gfm: true, breaks: true, ...markdownHooks });
+
+// User prompts are Markdown, not HTML documents. Keep pasted tags visible and
+// turn images into explicit links so displaying history never fetches user media.
+const userMarkdown = new Marked(markdownHooks, {
+  gfm: true,
+  breaks: true,
+  tokenizer: { html: () => undefined, tag: () => undefined },
+  renderer: {
+    html: ({ text }) => escapeHTML(text),
+    image: externalLink,
+  },
+  walkTokens(this: Marked, token) {
+    if (token.type !== 'link' || !token.tokens) return;
+    // A linked badge should keep its outer destination, not create nested links.
+    this.walkTokens(token.tokens, (child) => {
+      if (child.type === 'image')
+        Object.assign(child, { type: 'text', text: child.text || child.href, tokens: undefined });
+    });
+  },
+});
 
 // Keep math delimiters intact until the optional KaTeX pass. Placeholders are
 // escaped text, never HTML, so sanitizer policy remains authoritative.
@@ -176,13 +196,18 @@ function mediaRenderer(
   return renderer;
 }
 
-export function renderMarkdown(source: string, resolveMedia?: MarkdownMediaResolver): string {
+export function renderMarkdown(
+  source: string,
+  resolveMedia?: MarkdownMediaResolver,
+  variant: 'chat' | 'user' = 'chat',
+): string {
   const math = protectMath(source || '');
   const audioCards = new Map<string, string>();
-  const options = resolveMedia
-    ? { async: false as const, renderer: mediaRenderer(resolveMedia, audioCards) }
-    : { async: false as const };
-  let rendered = marked.parse(math.source, options) as string;
+  const options =
+    resolveMedia && variant === 'chat'
+      ? { async: false as const, renderer: mediaRenderer(resolveMedia, audioCards) }
+      : { async: false as const };
+  let rendered = (variant === 'user' ? userMarkdown : marked).parse(math.source, options) as string;
   rendered = rendered.replace(/TERM_LLM_MATH_(\d+)_TOKEN/g, (_match, index: string) =>
     escapeHTML(math.values[Number(index)] || ''),
   );
@@ -225,11 +250,24 @@ const MATH = [
   { expression: /\\\[([\s\S]+?)\\\]/g, display: true },
   { expression: /\\\((.+?)\\\)/g, display: false },
 ];
+// Bound synchronous highlighting work; larger blocks retain their full plain text.
+// Measured in UTF-16 code units, including the rendered code's trailing newline.
+const MAX_HIGHLIGHT_CHARACTERS = 50_000;
 let highlightPromise: Promise<typeof import('./rich-highlight')> | null = null;
 let katexPromise: Promise<typeof import('./rich-katex')> | null = null;
 
+function highlightLanguage(block: HTMLElement): string {
+  if (block.dataset.highlighted) return '';
+  const language = [...block.classList]
+    .map((name) => /^language-(.+)$/.exec(name)?.[1] || '')
+    .find(Boolean);
+  return language && (block.textContent?.length || 0) <= MAX_HIGHLIGHT_CHARACTERS ? language : '';
+}
+
 export function needsHighlight(root: HTMLElement): boolean {
-  return Boolean(root.querySelector('pre code'));
+  return [...root.querySelectorAll<HTMLElement>('pre code')].some((block) =>
+    Boolean(highlightLanguage(block)),
+  );
 }
 export function needsKatex(value: string): boolean {
   return /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\(.+?\\\)/.test(value);
@@ -254,10 +292,9 @@ export async function decorateRichContent(
     const { highlight } = code;
     root.querySelectorAll<HTMLElement>('pre code').forEach((block) => {
       if (block.dataset.highlighted) return;
-      const language = [...block.classList]
-        .map((name) => /^language-(.+)$/.exec(name)?.[1] || '')
-        .find(Boolean);
-      if (language && !highlight.getLanguage(language)) {
+      const language = highlightLanguage(block);
+      // Never auto-detect unlabelled code or spend highlighting work on huge blocks.
+      if (!language || !highlight.getLanguage(language)) {
         block.dataset.highlighted = 'yes';
         return;
       }
