@@ -1508,16 +1508,16 @@ func (rt *serveRuntime) persistTurnAccounting(ctx context.Context, persisted boo
 	if rt.engine == nil {
 		return
 	}
-	total, count := rt.engine.ContextEstimateBaseline()
+	total, count, window := rt.engine.ContextEstimateSnapshot()
 	if total <= 0 {
 		return
 	}
-	if err := rt.store.UpdateContextEstimate(ctx, sessionID, total, count); err != nil {
+	if err := session.UpdateContextEstimateWithWindow(ctx, rt.store, sessionID, total, count, window); err != nil {
 		log.Printf("[serve] session UpdateContextEstimate failed for %s: %v", sessionID, err)
 		return
 	}
 	rt.sessionMeta.LastTotalTokens = total
-	rt.sessionMeta.LastMessageCount = count
+	rt.sessionMeta.LastMessageCount, rt.sessionMeta.LastContextWindow = count, window
 }
 
 func isModelTurnCompletion(messages []core.Message, metrics core.TurnMetrics) bool {
@@ -1640,7 +1640,8 @@ type serveContextUsage struct {
 	Estimated         bool `json:"estimated"`
 	// AutoCompactAt is where term-llm itself compacts; omitted when it does not (auto-compaction
 	// off, unknown window, or a provider such as the CLI ones that manages its own context).
-	AutoCompactAt int `json:"auto_compact_at,omitempty"`
+	AutoCompactAt         int `json:"auto_compact_at,omitempty"`
+	ProviderAutoCompactAt int `json:"provider_auto_compact_at,omitempty"`
 }
 
 func contextUsageSnapshot(engine *engine.Engine, messages []core.Message, cachedInputTokens int) *serveContextUsage {
@@ -1662,6 +1663,8 @@ func contextUsageSnapshot(engine *engine.Engine, messages []core.Message, cached
 	}
 	if soft, _, enabled := engine.CompactionThresholds(); enabled && soft > 0 {
 		usage.AutoCompactAt = soft
+	} else if at := current.ProviderAutoCompactAt; at > 0 && at <= current.Window {
+		usage.ProviderAutoCompactAt = at
 	}
 	return usage
 }

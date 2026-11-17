@@ -56,6 +56,9 @@ export function sanitizeContextUsage(value: unknown): ContextUsage | undefined {
   const inputLimit = tokenCount(source.input_limit ?? source.inputLimit);
   const cachedInputTokens = tokenCount(source.cached_input_tokens ?? source.cachedInputTokens);
   const autoCompactAt = tokenCount(source.auto_compact_at ?? source.autoCompactAt);
+  const providerAutoCompactAt = tokenCount(
+    source.provider_auto_compact_at ?? source.providerAutoCompactAt,
+  );
   if (![usedTokens, inputLimit, cachedInputTokens].some((number) => Number.isFinite(number)))
     return undefined;
   return {
@@ -63,6 +66,7 @@ export function sanitizeContextUsage(value: unknown): ContextUsage | undefined {
     ...(Number.isFinite(inputLimit) && inputLimit > 0 ? { inputLimit } : {}),
     cachedInputTokens: Number.isFinite(cachedInputTokens) ? Math.max(0, cachedInputTokens) : 0,
     estimated: source.estimated !== false,
+    ...(providerAutoCompactAt > 0 ? { providerAutoCompactAt } : {}),
     ...(Number.isFinite(autoCompactAt) && autoCompactAt > 0 ? { autoCompactAt } : {}),
   };
 }

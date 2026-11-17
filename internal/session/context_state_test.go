@@ -80,7 +80,7 @@ func newContextStateTestStore(t *testing.T) Store {
 
 func seedContextStateSession(t *testing.T, ctx context.Context, store Store) *Session {
 	t.Helper()
-	sess := &Session{ID: NewID(), Provider: "test", Model: "model", CreatedAt: time.Now(), UpdatedAt: time.Now(), CompactionSeq: -1, LastTotalTokens: 999, LastMessageCount: 42}
+	sess := &Session{ID: NewID(), Provider: "test", Model: "model", CreatedAt: time.Now(), UpdatedAt: time.Now(), CompactionSeq: -1, LastTotalTokens: 999, LastMessageCount: 42, LastContextWindow: 2048}
 	if err := store.Create(ctx, sess); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -275,8 +275,8 @@ func TestApplyCompactionPersistsAppendsRefreshesAndClearsEstimate(t *testing.T) 
 	if refreshed == nil || refreshed.CompactionSeq < 0 || refreshed.CompactionCount != 1 {
 		t.Fatalf("refreshed = %#v, want compaction metadata", refreshed)
 	}
-	if refreshed.LastTotalTokens != 0 || refreshed.LastMessageCount != 0 {
-		t.Fatalf("context estimate = (%d,%d), want cleared", refreshed.LastTotalTokens, refreshed.LastMessageCount)
+	if refreshed.LastTotalTokens != 0 || refreshed.LastMessageCount != 0 || refreshed.LastContextWindow != 0 {
+		t.Fatalf("context estimate = (%d,%d,%d), want cleared", refreshed.LastTotalTokens, refreshed.LastMessageCount, refreshed.LastContextWindow)
 	}
 	active, err := LoadActiveMessages(ctx, store, refreshed)
 	if err != nil {

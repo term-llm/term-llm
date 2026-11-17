@@ -1369,6 +1369,7 @@ var migrations = []migration{
 	},
 	{version: 68, description: "durable notification turn ownership and fenced candidates", up: notificationdb.MigrateV68},
 	{version: 69, description: "display-only message authors and session starters", up: migrateAuthorsV69},
+	{version: 70, description: "persist last context window", up: migrateLastContextWindowV70},
 }
 
 // backfillProjectOrderV61 freezes the order the sidebar last showed projects

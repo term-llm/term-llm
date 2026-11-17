@@ -30,6 +30,39 @@ func TestClaudeBinProvider_ImplementsToolExecutorSetter(t *testing.T) {
 	}
 }
 
+func TestClaudeProbePrecedesStartupSteeringOnFastResult(t *testing.T) {
+	// Return the result as soon as the real user frame arrives. Never read or
+	// acknowledge the probe before completing the turn. EOF then lets us inspect
+	// exactly what startup sent, without a scheduling delay in the fake CLI.
+	const script = `#!/usr/bin/env python3
+import json, sys
+user = json.loads(sys.stdin.readline())
+assert user['type'] == 'user' and user['message']['content'][0]['text'] == 'hello'
+print('{"type":"result","result":"done"}', flush=True)
+controls = [json.loads(line) for line in sys.stdin]
+assert all(frame['type'] == 'control_request' and frame['request_id'] for frame in controls)
+requests = [frame['request'] for frame in controls]
+assert requests == [{'subtype':'get_context_usage','detail':'summary'}, {'subtype':'interrupt'}], requests
+`
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "claude"), []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	p := NewClaudeBinProvider("sonnet", nil)
+	p.RequestInlineFlush() // Queue steering before stdin is available.
+	prompt := p.buildStreamJsonInput([]core.Message{core.UserText("hello")}, "session")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := p.runClaudeCommand(ctx, nil, "", prompt, "", false, eventSender{ctx: ctx, ch: make(chan core.Event, 16)}, false, false); err != nil {
+		var ce *CLICommandError
+		if errors.As(err, &ce) {
+			t.Fatalf("fake CLI failed: %s", ce.StderrTail)
+		}
+		t.Fatal(err)
+	}
+}
+
 func TestClaudeBinProvider_NativeInterruptEndsActiveProseTurn(t *testing.T) {
 	binDir := t.TempDir()
 	readyFile := filepath.Join(t.TempDir(), "ready")
@@ -40,6 +73,8 @@ if first.get("type") != "user":
     sys.exit(2)
 open(os.environ["CLAUDE_INTERRUPT_READY"], "w").close()
 control = json.loads(sys.stdin.readline())
+if control.get("request", {}).get("subtype") == "get_context_usage":
+    control = json.loads(sys.stdin.readline())
 if control.get("type") != "control_request" or control.get("request", {}).get("subtype") != "interrupt":
     sys.exit(3)
 print(json.dumps({"type":"control_response","response":{"subtype":"success","request_id":control.get("request_id"),"response":{"still_queued":[]}}}), flush=True)

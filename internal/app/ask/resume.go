@@ -10,6 +10,7 @@ import (
 	appserve "github.com/term-llm/term-llm/internal/app/serve"
 	"github.com/term-llm/term-llm/internal/config"
 	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/run"
 	"github.com/term-llm/term-llm/internal/session"
 	"github.com/term-llm/term-llm/internal/skills"
 )
@@ -114,4 +115,15 @@ func deriveAskResumeAutoTools(ctx context.Context, store session.Store, sess *se
 		history = append(history, rows[i].ToLLMMessage())
 	}
 	settings.AutoTools = AddAutoTools(settings.AutoTools, history)
+}
+
+func askContextEstimate(cfg *config.Config, sess *session.Session) run.ContextEstimate {
+	if sess == nil {
+		return run.ContextEstimate{}
+	}
+	key := sess.ProviderKey
+	if key == "" { // Legacy Ask rows stored only the display name.
+		key = appruntime.ResolveSessionProviderKey(cfg, sess)
+	}
+	return run.ContextEstimate{TotalTokens: sess.LastTotalTokens, MessageCount: sess.LastMessageCount, Window: sess.LastContextWindow, Provider: key, Model: sess.Model}
 }

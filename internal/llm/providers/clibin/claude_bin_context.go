@@ -2,6 +2,10 @@ package clibin
 
 import (
 	"encoding/json"
+	"io"
+	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/term-llm/term-llm/internal/llm/core"
 )
@@ -20,6 +24,86 @@ type claudeContextReport struct {
 	messageID string // Assistant message the last reading came from
 	used      int    // Prompt tokens of the latest top-level API call
 	window    int    // Context window Claude Code reported for model
+	requestID string // Outstanding summary request in this subprocess only
+	summary   claudeContextSummary
+}
+
+// Parse only the display fields. Even a summary can include private paths,
+// tool names and other breakdowns; never put the response in diagnostics.
+type claudeContextSummary struct {
+	Model             string
+	Window, Threshold int
+}
+
+type claudeSummaryResponseFields struct {
+	Model     string          `json:"model"`
+	Window    int             `json:"rawMaxTokens"`
+	MaxTokens int             `json:"maxTokens"`
+	Enabled   json.RawMessage `json:"isAutoCompactEnabled"`
+	Threshold json.RawMessage `json:"autoCompactThreshold"`
+}
+
+// Malformed optional compaction metadata does not invalidate the window.
+func (s claudeSummaryResponseFields) validated() claudeContextSummary {
+	window := s.Window
+	if window == 0 {
+		window = s.MaxTokens
+	}
+	if window <= 0 || s.Model == "" {
+		return claudeContextSummary{}
+	}
+	summary := claudeContextSummary{Model: s.Model, Window: window}
+	var enabled bool
+	var threshold int
+	if json.Unmarshal(s.Enabled, &enabled) == nil && enabled && json.Unmarshal(s.Threshold, &threshold) == nil && threshold > 0 && threshold <= window && (s.MaxTokens == 0 || threshold <= s.MaxTokens) {
+		summary.Threshold = threshold
+	}
+	return summary
+}
+
+// writeInitialInput sends the user frame before the optional probe, while stdin
+// is still private to startup. A CLI may close stdin once it accepts the turn.
+func (r *claudeContextReport) writeInitialInput(stdin io.Writer, userPrompt string, ephemeral bool) error {
+	if _, err := io.WriteString(stdin, userPrompt+"\n"); err != nil || ephemeral {
+		return err
+	}
+	// Keep only the previously learned result window for the same model.
+	id := uuid.NewString()
+	*r = claudeContextReport{model: r.model, window: r.window, requestID: id}
+	// Full detail may make token-count API calls. Summary uses local estimates.
+	if _, err := io.WriteString(stdin, `{"type":"control_request","request_id":"`+id+`","request":{"subtype":"get_context_usage","detail":"summary"}}`+"\n"); err != nil {
+		r.requestID = ""
+	}
+	return nil
+}
+
+func (r *claudeContextReport) observeSummary(line string) *core.ContextUsage {
+	if r.requestID == "" {
+		return nil
+	}
+	var msg struct {
+		Response struct {
+			RequestID string                      `json:"request_id"`
+			Subtype   string                      `json:"subtype"`
+			Summary   claudeSummaryResponseFields `json:"response"`
+		} `json:"response"`
+	}
+	if json.Unmarshal([]byte(line), &msg) != nil || msg.Response.RequestID != r.requestID {
+		return nil
+	}
+	r.requestID = ""
+	if msg.Response.Subtype != "success" {
+		return nil
+	}
+	s := msg.Response.Summary.validated()
+	if s.Window == 0 {
+		return nil
+	}
+	r.summary = s
+	if r.used == 0 || !r.matchesSummary() {
+		return nil
+	}
+	return r.reading()
 }
 
 type claudeAssistantUsage struct {
@@ -38,7 +122,8 @@ type claudeAssistantContextLine struct {
 }
 
 type claudeModelUsage struct {
-	ContextWindow int `json:"contextWindow"`
+	ContextWindow  int    `json:"contextWindow"`
+	CanonicalModel string `json:"canonicalModel"`
 }
 
 type claudeResultContextLine struct {
@@ -49,6 +134,8 @@ type claudeResultContextLine struct {
 // reading to publish, or nil when the line carries nothing new.
 func (r *claudeContextReport) observe(lineType, line string) *core.ContextUsage {
 	switch lineType {
+	case "control_response":
+		return r.observeSummary(line)
 	case "assistant":
 		return r.observeAssistant(line)
 	case "result":
@@ -59,11 +146,20 @@ func (r *claudeContextReport) observe(lineType, line string) *core.ContextUsage 
 
 func (r *claudeContextReport) observeAssistant(line string) *core.ContextUsage {
 	var msg claudeAssistantContextLine
-	if err := json.Unmarshal([]byte(line), &msg); err != nil || msg.Message.Usage == nil {
+	if err := json.Unmarshal([]byte(line), &msg); err != nil {
 		return nil
 	}
 	// Subagent (sidechain) calls run in their own context window.
 	if msg.ParentToolUseID != "" {
+		return nil
+	}
+	if msg.Message.Model != r.model {
+		if r.used != 0 { // A fallback mid-turn invalidates even an in-flight probe.
+			r.requestID, r.summary = "", claudeContextSummary{}
+		}
+		r.model, r.window, r.messageID, r.used = msg.Message.Model, 0, "", 0
+	}
+	if msg.Message.Usage == nil {
 		return nil
 	}
 	u := msg.Message.Usage
@@ -76,12 +172,6 @@ func (r *claudeContextReport) observeAssistant(line string) *core.ContextUsage {
 	if msg.Message.ID != "" && msg.Message.ID == r.messageID && used == r.used {
 		return nil
 	}
-	if msg.Message.Model != "" && msg.Message.Model != r.model {
-		if r.model != "" {
-			r.window = 0
-		}
-		r.model = msg.Message.Model
-	}
 	r.messageID, r.used = msg.Message.ID, used
 	return r.reading()
 }
@@ -91,14 +181,7 @@ func (r *claudeContextReport) observeResult(line string) *core.ContextUsage {
 	if err := json.Unmarshal([]byte(line), &msg); err != nil {
 		return nil
 	}
-	window := 0
-	if usage, ok := msg.ModelUsage[r.model]; ok {
-		window = usage.ContextWindow
-	} else if len(msg.ModelUsage) == 1 {
-		for _, usage := range msg.ModelUsage {
-			window = usage.ContextWindow
-		}
-	}
+	window := msg.windowFor(r.model)
 	if window <= 0 || window == r.window {
 		return nil
 	}
@@ -109,8 +192,52 @@ func (r *claudeContextReport) observeResult(line string) *core.ContextUsage {
 	return r.reading()
 }
 
+// Claude Code keys modelUsage by raw model ID. An alias or [1m] selector
+// may differ from the model in the assistant message. Only accept an
+// indirect match when it identifies one entry; side calls have windows too.
+func (msg claudeResultContextLine) windowFor(model string) int {
+	if model == "" {
+		return 0
+	}
+	if usage, ok := msg.ModelUsage[model]; ok {
+		return usage.ContextWindow
+	}
+	base := strings.TrimSuffix(model, "[1m]")
+	window, found := 0, false
+	for key, usage := range msg.ModelUsage {
+		if strings.TrimSuffix(key, "[1m]") != base && usage.CanonicalModel != base {
+			continue
+		}
+		if found {
+			return 0
+		}
+		window, found = usage.ContextWindow, true
+	}
+	return window
+}
+
+func (r *claudeContextReport) matchesSummary() bool {
+	s := r.summary
+	return s.Model != "" && strings.TrimSuffix(s.Model, "[1m]") == strings.TrimSuffix(r.model, "[1m]") && (r.window == 0 || r.window == s.Window)
+}
+
 func (r *claudeContextReport) reading() *core.ContextUsage {
-	return &core.ContextUsage{UsedTokens: r.used, Window: r.window}
+	reading := &core.ContextUsage{UsedTokens: r.used, Window: r.window}
+	if r.matchesSummary() {
+		s := r.summary
+		reading.Window, reading.ProviderAutoCompactAt = s.Window, s.Threshold
+	}
+	return reading
+}
+
+func claudeStreamLineType(line string) string {
+	var message struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal([]byte(line), &message) != nil {
+		return ""
+	}
+	return message.Type
 }
 
 // reportClaudeContext publishes a context reading derived from line. Ephemeral

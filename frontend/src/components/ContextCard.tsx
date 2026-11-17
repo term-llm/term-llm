@@ -18,7 +18,7 @@ export interface ContextCardProps {
 
 const share = (tokens: number, limit: number) => `${Math.min(100, (tokens / limit) * 100)}%`;
 
-/** The whole window as a bar, with term-llm's auto-compaction point marked when it has one. */
+/** The whole window as a bar, with the effective auto-compaction point marked when it has one. */
 function ContextBar({ reading, limit }: { reading: ContextReading; limit: number }) {
   const compactAt = reading.autoCompactAt;
   const style: Record<string, string> = { '--context-fill': share(reading.used, limit) };
@@ -46,6 +46,10 @@ function ContextBar({ reading, limit }: { reading: ContextReading; limit: number
 function contextNote(reading: ContextReading): string {
   if (reading.limit === undefined) return 'The window size for this model is not known.';
   if (reading.untilAutoCompact === undefined) return '';
+  if (reading.compactOwner === 'Claude Code')
+    return reading.untilAutoCompact > 0
+      ? `${formatTokens(reading.untilAutoCompact)} tokens left before Claude Code’s auto-compaction point.`
+      : 'Claude Code’s auto-compaction point has been reached.';
   return reading.untilAutoCompact > 0
     ? `${formatTokens(reading.untilAutoCompact)} left before term-llm compacts automatically.`
     : 'Past the auto-compaction point: term-llm compacts at its next checkpoint.';
@@ -111,7 +115,17 @@ export function ContextCard({ id, reading, hint, trigger, onClose }: ContextCard
       </div>
       <div class="context-popover-summary">
         {limit !== undefined && (
-          <ContextRing reading={reading} size={76} stroke={7} label={formatPercent(reading)} />
+          <ContextRing reading={reading} size={76} stroke={7}>
+            <text
+              class="context-ring-label"
+              x="50%"
+              y="50%"
+              text-anchor="middle"
+              dominant-baseline="central"
+            >
+              {formatPercent(reading)}
+            </text>
+          </ContextRing>
         )}
         <dl class="context-popover-figures">
           <dt>In context</dt>

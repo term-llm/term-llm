@@ -554,11 +554,7 @@ func (m *Model) switchEffortStateOnly(resolved effortSwitchResolution, deferMark
 	m.refreshEffectiveFastMode()
 
 	if m.sess != nil {
-		m.sess.ProviderKey = m.providerKey
-		m.sess.Model = resolved.targetModel
-		if m.store != nil {
-			_ = m.store.Update(context.Background(), m.sess)
-		}
+		m.updateSessionModel(m.sess.Provider, m.providerKey, resolved.targetModel)
 	}
 
 	m.recordCurrentModelUse()
@@ -914,4 +910,18 @@ func (m *Model) toggleFast() (tea.Model, tea.Cmd) {
 	}
 	m.setFastOverride(serviceTierFast)
 	return m.showFooterSuccess(m.fastToggleMessage(true))
+}
+
+func (m *Model) updateSessionModel(provider, key, model string) {
+	if m.sess == nil {
+		return
+	}
+	// Mirror SQLite's identity invalidation before relabeling the in-memory row.
+	if m.sess.Provider != provider || m.sess.ProviderKey != key || m.sess.Model != model {
+		m.sess.LastContextWindow = 0
+	}
+	m.sess.Provider, m.sess.ProviderKey, m.sess.Model = provider, key, model
+	if m.store != nil {
+		_ = m.store.Update(context.Background(), m.sess)
+	}
 }

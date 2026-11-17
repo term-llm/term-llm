@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -26,7 +27,7 @@ func TestStreamResponses_ForwardsProviderReportedContextMidRun(t *testing.T) {
 			WithCapabilities(core.Capabilities{ManagesOwnContext: true})
 		provider.AddTurn(mockprovider.MockTurn{
 			Text:    "done",
-			Context: &core.ContextUsage{UsedTokens: 25670, Window: 1_000_000},
+			Context: &core.ContextUsage{UsedTokens: 25670, Window: 1_000_000, ProviderAutoCompactAt: 967_000},
 			Usage:   core.Usage{InputTokens: 6, CachedInputTokens: 63699, CacheWriteTokens: 13071, OutputTokens: 184},
 		})
 		rt := &serveRuntime{provider: provider, engine: engine.NewEngine(provider, nil), defaultModel: "mock-model"}
@@ -84,7 +85,10 @@ func TestStreamResponses_ForwardsProviderReportedContextMidRun(t *testing.T) {
 		if got["used_tokens"] != float64(25670) || got["input_limit"] != float64(1_000_000) {
 			t.Fatalf("%s context_usage = %v, want 25670/1000000 (summed billing usage must not leak in)", name, usage)
 		}
-		// The provider compacts its own context at a point term-llm does not know.
+		if got["provider_auto_compact_at"] != float64(967_000) {
+			t.Fatalf("%s: missing provider threshold in %v", name, got)
+		}
+		// Reporting this number does not turn engine-managed compaction on.
 		if _, ok := got["auto_compact_at"]; ok {
 			t.Fatalf("%s context_usage = %v, want no auto_compact_at for a self-managing provider", name, usage)
 		}
@@ -154,5 +158,74 @@ func TestSelectedWebSessionPrefersLiveProviderReportedContext(t *testing.T) {
 	}
 	if total, _ := eng.ContextEstimateBaseline(); total != 25670 {
 		t.Fatalf("ContextEstimateBaseline() = %d, want the reported 25670 so it persists", total)
+	}
+}
+
+// Reopening the picker with no live runtime must not replace the real Claude
+// window with an alias lookup ("opus" has no fixed window).
+func TestClaudeContextWindowSurvivesColdSessionReopen(t *testing.T) {
+	ctx := context.Background()
+	cfg := session.Config{Enabled: true, Path: filepath.Join(t.TempDir(), "sessions.db")}
+	open := func() *session.SQLiteStore {
+		t.Helper()
+		s, err := session.NewSQLiteStore(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	s := open()
+	meta := &session.Session{ID: session.NewID(), Provider: "claude-bin", Model: "opus", CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	if err := s.Create(ctx, meta); err != nil {
+		t.Fatal(err)
+	}
+	p := mockprovider.NewMockProvider("claude-bin").WithCapabilities(core.Capabilities{ManagesOwnContext: true})
+	p.AddTurn(mockprovider.MockTurn{Text: "done", Context: &core.ContextUsage{UsedTokens: 634800, Window: 1000000}})
+	e := engine.NewEngine(p, nil)
+	e.ConfigureContextManagement(p, "claude-bin", "opus", true)
+	stream, err := e.Stream(ctx, core.Request{Messages: []core.Message{core.UserText("hi")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := stream.Recv(); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+	}
+	rt := &serveRuntime{provider: p, engine: e, store: s, sessionMeta: meta, defaultModel: "opus"}
+	rt.persistTurnAccounting(ctx, true, meta.ID, []core.Message{core.AssistantText("done")}, core.TurnMetrics{})
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened := open()
+	defer reopened.Close()
+	srv := &serveServer{store: reopened}
+	selected, err := srv.selectedWebSession(ctx, meta.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected == nil || selected.ContextUsage == nil {
+		t.Fatal("missing selected context")
+	}
+	got := selected.ContextUsage
+	if got.UsedTokens != 634800 || got.InputLimit != 1000000 || got.AutoCompactAt != 0 {
+		t.Fatalf("after cold reopen: %+v", got)
+	}
+	saved, err := reopened.Get(ctx, meta.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hydrated := engine.NewEngine(p, nil)
+	hydrated.ConfigureContextManagement(p, "claude-bin", "opus", true)
+	applyPersistedContextEstimate(hydrated, saved)
+	if got := hydrated.ContextUsage(); got.Window != 1000000 || got.UsedTokens != 634800 {
+		t.Fatalf("after runtime restore: %+v", got)
+	}
+	hydrated.ConfigureContextManagement(p, "claude-bin", "sonnet", true)
+	applyPersistedContextEstimate(hydrated, saved)
+	if got := hydrated.ContextUsage(); got.Window != 0 {
+		t.Fatalf("other model inherited window: %+v", got)
 	}
 }

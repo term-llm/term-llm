@@ -184,11 +184,14 @@ func (f *telegramReplyFinalizer) persistMetrics(ctx context.Context) {
 				})
 			})
 		}
-		if total, count := f.sess.runtime.Engine.ContextEstimateBaseline(); total > 0 {
-			f.sess.meta.LastTotalTokens = total
-			f.sess.meta.LastMessageCount = count
+		if total, count, window := f.sess.runtime.Engine.ContextEstimateSnapshot(); total > 0 {
+			// Keep the usage baseline, but don't attribute a replacement model's
+			// window to the provider/model named in the saved session.
+			if !f.sess.matchesContextIdentity() {
+				window = 0
+			}
 			f.manager.runStoreOpWithoutCancel(ctx, f.sess.meta.ID, "UpdateContextEstimate", func(storeCtx context.Context) error {
-				return f.manager.store.UpdateContextEstimate(storeCtx, f.sess.meta.ID, total, count)
+				return session.PersistContextEstimate(storeCtx, f.manager.store, f.sess.meta, total, count, window)
 			})
 		}
 	}

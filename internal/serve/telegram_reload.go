@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/term-llm/term-llm/internal/llm"
 	"github.com/term-llm/term-llm/internal/llm/core"
 	"github.com/term-llm/term-llm/internal/process"
 	"github.com/term-llm/term-llm/internal/restart"
@@ -26,6 +28,35 @@ type telegramReloadChat struct {
 	CarryoverCount   int
 	LastActivity     time.Time
 }
+
+func (sess *telegramSession) matchesContextIdentity() bool {
+	meta, rt := sess.meta, sess.runtime
+	return meta.Model == rt.ModelName && cmp.Or(meta.ProviderKey, meta.Provider) == cmp.Or(rt.ProviderKey, rt.ProviderName)
+}
+
+// restoreReloadChat resumes the same session. A new session may copy a tail
+// of the transcript, but must not inherit the previous context estimate.
+func (sess *telegramSession) restoreReloadChat(saved telegramReloadChat) {
+	sess.meta = saved.Meta
+	sess.history = saved.History
+	sess.activeHistory = saved.ActiveHistory
+	_, sess.conversationStartPersisted = llm.ConversationStartFrom(sess.history)
+	sess.systemPromptPersisted = saved.PromptPersisted
+	sess.carryoverContext = saved.CarryoverContext
+	sess.carryoverContextLabel = saved.CarryoverLabel
+	sess.carryoverMessageCount = saved.CarryoverCount
+	sess.lastActivity = saved.LastActivity
+	meta, rt := saved.Meta, sess.runtime
+	if meta == nil || rt.Engine == nil || meta.LastTotalTokens <= 0 || !sess.matchesContextIdentity() {
+		return
+	}
+	if total, _, _ := rt.Engine.ContextEstimateSnapshot(); total > 0 {
+		return
+	}
+	rt.Engine.SetContextEstimateBaseline(meta.LastTotalTokens, meta.LastMessageCount)
+	rt.Engine.RestoreReportedWindow(cmp.Or(meta.ProviderKey, meta.Provider), meta.Model, meta.LastTotalTokens, meta.LastContextWindow)
+}
+
 type telegramContinuation struct {
 	Engine         *core.Continuation
 	MessageID      int

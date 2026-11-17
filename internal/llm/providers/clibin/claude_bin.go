@@ -786,7 +786,7 @@ func (p *ClaudeBinProvider) runClaudeCommand(
 
 	p.interruptSent.Store(false)
 	streamInput := &claudeStreamInput{writer: stdin}
-	if err := streamInput.WriteLine([]byte(userPrompt)); err != nil {
+	if err := p.contextReport.writeInitialInput(stdin, userPrompt, ephemeral); err != nil {
 		_ = streamInput.Close()
 		return fmt.Errorf("write claude stream-json input: %w", err)
 	}
@@ -796,7 +796,7 @@ func (p *ClaudeBinProvider) runClaudeCommand(
 		_ = streamInput.Close()
 		p.interruptSent.Store(false)
 	}()
-	// An steering can race process startup. The shared flush marker records
+	// Steering can race process startup. The shared flush marker records
 	// it until stdin is live, at which point the native interrupt can be sent.
 	if p.inlineFlushRequested() {
 		p.sendNativeInterrupt()
@@ -860,8 +860,16 @@ func (p *ClaudeBinProvider) runClaudeCommand(
 		scanner.Buffer(make([]byte, 1024*1024), 10*1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text()
-			recordCLITailLine(&stdoutMu, &stdoutTail, line, claudeStdoutTailMaxLines)
-			if claudeStreamLineType(line) == "result" {
+			lineType := claudeStreamLineType(line)
+			// Drop malformed control replies too: neither the diagnostic tail nor
+			// the debug parse error should contain private breakdowns.
+			if lineType == "" && strings.Contains(line, `"control_response"`) {
+				continue
+			}
+			if lineType != "control_response" {
+				recordCLITailLine(&stdoutMu, &stdoutTail, line, claudeStdoutTailMaxLines)
+			}
+			if lineType == "result" {
 				// Streaming input keeps Claude alive for more user turns. term-llm
 				// resumes those as separate provider turns, so EOF after this
 				// terminal frame lets the current subprocess exit cleanly.
@@ -1040,16 +1048,6 @@ func (p *ClaudeBinProvider) dispatchClaudeEvents(
 drained:
 
 	return lastUsage, toolsExecuted, handledTerminalResult, nil
-}
-
-func claudeStreamLineType(line string) string {
-	var message struct {
-		Type string `json:"type"`
-	}
-	if json.Unmarshal([]byte(line), &message) != nil {
-		return ""
-	}
-	return message.Type
 }
 
 func (p *ClaudeBinProvider) handleClaudeLine(

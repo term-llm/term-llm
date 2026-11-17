@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/term-llm/term-llm/internal/llm/core"
@@ -140,9 +141,12 @@ func TestAuthorMigrationV69PreservationRollbackRetryAndSignature(t *testing.T) {
 	original := migrations
 	t.Cleanup(func() { migrations = original })
 	migrations = append([]migration(nil), original...)
-	last := len(migrations) - 1
-	up := migrations[last].up
-	migrations[last].up = func(db schemaExecutor) error {
+	index := slices.IndexFunc(migrations, func(m migration) bool { return m.version == 69 })
+	if index < 0 {
+		t.Fatal("missing author migration")
+	}
+	up := migrations[index].up
+	migrations[index].up = func(db schemaExecutor) error {
 		if err := up(db); err != nil {
 			return err
 		}

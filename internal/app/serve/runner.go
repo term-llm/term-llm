@@ -381,9 +381,7 @@ func (r *cmdRunner) prepare(ctx context.Context, req runpkg.Request, sink runpkg
 	if err := applyChildSkillRuntime(engine, toolMgr, req.ChildSkill); err != nil {
 		return nil, err
 	}
-	if req.ContextEstimateTotalTokens > 0 {
-		engine.SetContextEstimateBaseline(req.ContextEstimateTotalTokens, req.ContextEstimateMessageCount)
-	}
+	req.ContextEstimate.Restore(engine)
 	if toolMgr != nil && r.defaults.ParentApprovalMgr != nil {
 		if err := toolMgr.ApprovalMgr.SetParent(r.defaults.ParentApprovalMgr); err != nil {
 			return nil, fmt.Errorf("set parent approval manager: %w", err)
@@ -831,8 +829,8 @@ func (r *cmdRunner) runProgressive(ctx context.Context, runtime *serveRuntime, e
 					CachedInputTokens: metrics.CachedInputTokens, CacheWriteTokens: metrics.CacheWriteTokens,
 				}, 1, metrics.ToolCalls)
 			}
-			if total, count := engine.ContextEstimateBaseline(); total > 0 {
-				if err := persistStore.UpdateContextEstimate(cbCtx, sess.ID, total, count); err != nil {
+			if total, count, window := engine.ContextEstimateSnapshot(); total > 0 {
+				if err := session.UpdateContextEstimateWithWindow(cbCtx, persistStore, sess.ID, total, count, window); err != nil {
 					runtimeoutput.Logf("[runner] session UpdateContextEstimate failed for %s: %v", sess.ID, err)
 				}
 			}

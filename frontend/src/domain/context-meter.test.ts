@@ -44,6 +44,26 @@ describe('context meter reading', () => {
     });
   });
 
+  it('uses an in-window provider point for the marker, remaining tokens and warning bands', () => {
+    const base = usage(80, 100, 95);
+    expect(readContext({ ...base, providerAutoCompactAt: 80 })).toMatchObject({
+      autoCompactAt: 80,
+      untilAutoCompact: 0,
+      tone: 'hot',
+      compactOwner: 'Claude Code',
+    });
+    expect(readContext({ ...base, providerAutoCompactAt: 100 }).untilAutoCompact).toBe(20);
+    for (const invalid of [0, -1, 101, NaN, Infinity]) {
+      expect(readContext({ ...base, providerAutoCompactAt: invalid })).toEqual(readContext(base));
+      expect(readContext({ ...usage(80, 100), providerAutoCompactAt: invalid })).not.toHaveProperty(
+        'autoCompactAt',
+      );
+    }
+    expect(readContext({ ...usage(80), providerAutoCompactAt: 90 })).not.toHaveProperty(
+      'autoCompactAt',
+    );
+  });
+
   it('never shows a non-zero reading as empty and clamps an overfull ring', () => {
     const tiny = readContext(usage(300, 1_000_000));
     expect(formatPercent(tiny)).toBe('<1%');

@@ -420,9 +420,7 @@ func (r *chatInvocation) buildChatSessionRuntime(ctx context.Context, launch cha
 		agentName = agents.Reference(agent)
 	}
 	if sess != nil {
-		sess.Provider = provider.Name()
-		sess.ProviderKey = providerKey
-		sess.Model = modelName
+		relabelResumedSession(sess, provider.Name(), providerKey, modelName)
 		if agent != nil {
 			sess.Agent = agentName
 		}
@@ -647,4 +645,12 @@ func (r *chatInvocation) buildChatSessionRuntime(ctx context.Context, launch cha
 		cleanupResources: cleanupResources,
 		restoreTitle:     restoreTerminalTitle,
 	}, nil
+}
+
+func relabelResumedSession(sess *session.Session, provider, key, model string) {
+	// Mirror the store's identity check before overwriting the in-memory labels.
+	if sess.Provider != provider || sess.ProviderKey != key || sess.Model != model {
+		sess.LastContextWindow = 0
+	}
+	sess.Provider, sess.ProviderKey, sess.Model = provider, key, model
 }

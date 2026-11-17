@@ -1120,6 +1120,20 @@ describe('transcript domain', () => {
       ).not.toHaveProperty('autoCompactAt');
   });
 
+  it('keeps provider and term-llm thresholds separate on the wire and on cache restore', () => {
+    const parsed = sanitizeContextUsage({
+      used_tokens: 20,
+      provider_auto_compact_at: 80,
+      auto_compact_at: 90,
+    });
+    expect(parsed).toMatchObject({ providerAutoCompactAt: 80, autoCompactAt: 90 });
+    expect(sanitizeContextUsage(parsed)).toEqual(parsed);
+    for (const invalid of [undefined, null, 0, -1, '', 'soon', Infinity])
+      expect(
+        sanitizeContextUsage({ used_tokens: 20, provider_auto_compact_at: invalid }),
+      ).not.toHaveProperty('providerAutoCompactAt');
+  });
+
   it('prefers server-resolved titles while retaining editable generated metadata', () => {
     const session = sanitizeSession({
       id: 's1',

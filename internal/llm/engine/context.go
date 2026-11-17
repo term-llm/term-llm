@@ -178,12 +178,33 @@ func (t *providerTurnFrame) hasProvisionalOutput() bool {
 // so the latest provider-reported occupancy is the baseline. Persisting it lets
 // a reloaded session show its last known size before the next turn.
 func (e *Engine) ContextEstimateBaseline() (int, int) {
+	total, count, _ := e.ContextEstimateSnapshot()
+	return total, count
+}
+
+// ContextEstimateSnapshot reads the baseline and its provider-reported window
+// atomically. Never persist the engine's configured limit as a provider reading.
+func (e *Engine) ContextEstimateSnapshot() (total, count, reportedWindow int) {
 	e.callbackMu.RLock()
 	defer e.callbackMu.RUnlock()
 	if e.reportedContext.UsedTokens > 0 {
-		return e.reportedContext.UsedTokens, 0
+		return e.reportedContext.UsedTokens, 0, e.reportedContext.Window
 	}
-	return e.lastTotalTokens, e.lastMessageCount
+	return e.lastTotalTokens, e.lastMessageCount, 0
+}
+
+// RestoreReportedWindow seeds only the display reading. A cold session may
+// have changed providers/models; never attach the old window to its new model
+// or supersede a live reading (even one that explicitly reports unknown).
+func (e *Engine) RestoreReportedWindow(provider, model string, used, window int) {
+	if used <= 0 || window <= 0 {
+		return
+	}
+	e.callbackMu.Lock()
+	defer e.callbackMu.Unlock()
+	if e.reportedContext.UsedTokens == 0 && e.reportedContextKey == provider+"\x00"+model {
+		e.reportedContext = core.ContextUsage{UsedTokens: used, Window: window}
+	}
 }
 
 // SetContextEstimateBaseline seeds the context-estimate baseline, typically
@@ -197,6 +218,9 @@ func (e *Engine) SetContextEstimateBaseline(lastTotalTokens, lastMessageCount in
 		lastMessageCount = 0
 	}
 	e.callbackMu.Lock()
+	if lastTotalTokens == 0 {
+		e.reportedContext = core.ContextUsage{}
+	}
 	e.lastTotalTokens = lastTotalTokens
 	e.lastMessageCount = lastMessageCount
 	e.callbackMu.Unlock()

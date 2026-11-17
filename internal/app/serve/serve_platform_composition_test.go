@@ -97,13 +97,13 @@ func TestComposeServePlatformSessionFactoryMapsAndPreservesCleanup(t *testing.T)
 	provider := &compositionCleanupProvider{name: "composition-provider"}
 	eng := engine.NewEngine(provider, nil)
 	factory := composeServePlatformSessionFactory(func(context.Context) (*serveRuntime, error) {
-		return &serveRuntime{engine: eng, provider: provider, defaultModel: "composition-model", systemPrompt: "<preloaded_skills>rendered</preloaded_skills>"}, nil
+		return &serveRuntime{engine: eng, provider: provider, providerKey: "composition-alias", defaultModel: "composition-model", systemPrompt: "<preloaded_skills>rendered</preloaded_skills>"}, nil
 	})
 	sessionRuntime, err := factory(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sessionRuntime.Engine != eng || sessionRuntime.Provider != provider || sessionRuntime.ProviderName != provider.Name() || sessionRuntime.ModelName != "composition-model" {
+	if sessionRuntime.Engine != eng || sessionRuntime.Provider != provider || sessionRuntime.ProviderName != provider.Name() || sessionRuntime.ProviderKey != "composition-alias" || sessionRuntime.ModelName != "composition-model" {
 		t.Fatalf("session runtime = %#v", sessionRuntime)
 	}
 	if sessionRuntime.SystemPrompt == nil || *sessionRuntime.SystemPrompt != "<preloaded_skills>rendered</preloaded_skills>" {

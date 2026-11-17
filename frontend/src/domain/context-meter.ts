@@ -18,9 +18,10 @@ export interface ContextReading {
   fill: number;
   /** Tokens left in the window; absent without a window. */
   free?: number;
-  /** Occupancy at which term-llm compacts; absent when it does not. */
+  /** Effective compaction point for the marker and warning bands. */
   autoCompactAt?: number;
-  /** Tokens left before term-llm compacts; 0 once past that point. */
+  compactOwner?: 'Claude Code' | 'term-llm';
+  /** Tokens left before the compaction point; 0 once past that point. */
   untilAutoCompact?: number;
   tone: ContextTone;
   estimated: boolean;
@@ -32,10 +33,10 @@ export function readContext(usage: ContextUsage): ContextReading {
   const reading: ContextReading = { used, fill: 0, tone: 'calm', estimated: usage.estimated };
   if (!limit) return reading;
   const share = used / limit;
-  const autoCompactAt =
-    usage.autoCompactAt && usage.autoCompactAt > 0 && usage.autoCompactAt <= limit
-      ? usage.autoCompactAt
-      : undefined;
+  const inWindow = (point?: number) =>
+    point !== undefined && point > 0 && point <= limit ? point : undefined;
+  const providerPoint = inWindow(usage.providerAutoCompactAt);
+  const autoCompactAt = providerPoint ?? inWindow(usage.autoCompactAt);
   const hotAt = autoCompactAt ?? limit * HOT_RATIO;
   // A configured early compaction point pulls the amber band down with it.
   const warmAt = Math.min(limit * WARM_RATIO, hotAt * (WARM_RATIO / HOT_RATIO));
@@ -48,7 +49,11 @@ export function readContext(usage: ContextUsage): ContextReading {
     free: Math.max(0, limit - used),
     ...(autoCompactAt === undefined
       ? {}
-      : { autoCompactAt, untilAutoCompact: Math.max(0, autoCompactAt - used) }),
+      : {
+          autoCompactAt,
+          compactOwner: providerPoint === undefined ? 'term-llm' : 'Claude Code',
+          untilAutoCompact: Math.max(0, autoCompactAt - used),
+        }),
     tone: used >= hotAt ? 'hot' : used >= warmAt ? 'warm' : 'calm',
   };
 }

@@ -41,6 +41,21 @@ type ProgressiveResult struct {
 	FallbackText  string         `json:"fallback_text,omitempty"`
 }
 
+// ContextEstimate pairs a persisted baseline with the identity that reported its window.
+type ContextEstimate struct {
+	TotalTokens, MessageCount, Window int
+	Provider, Model                   string
+}
+
+// Restore seeds the engine after the runner has configured its actual provider and model.
+func (c ContextEstimate) Restore(e *engine.Engine) {
+	if c.TotalTokens <= 0 {
+		return
+	}
+	e.SetContextEstimateBaseline(c.TotalTokens, c.MessageCount)
+	e.RestoreReportedWindow(c.Provider, c.Model, c.TotalTokens, c.Window)
+}
+
 // Request is a single LLM execution request. It intentionally carries execution
 // semantics (agent, prompt/history, settings overrides, persistence and runtime
 // capabilities) but not presentation details; presentation belongs to EventSink
@@ -87,16 +102,15 @@ type Request struct {
 	MCPExplicit bool // True only for a user-typed selection, never settings/job-derived MCP.
 	Skills      string
 
-	SystemMessage               string
-	MaxTurns                    int
-	MaxTurnsSet                 bool
-	MaxOutputTokens             int
-	ServiceTier                 string
-	ServiceTierSet              bool
-	ContextEstimateTotalTokens  int
-	ContextEstimateMessageCount int
-	Search                      *bool
-	NoSearch                    bool
+	SystemMessage   string
+	MaxTurns        int
+	MaxTurnsSet     bool
+	MaxOutputTokens int
+	ServiceTier     string
+	ServiceTierSet  bool
+	ContextEstimate ContextEstimate
+	Search          *bool
+	NoSearch        bool
 
 	Yolo     bool
 	Auto     bool

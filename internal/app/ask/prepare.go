@@ -9,7 +9,6 @@ import (
 	appruntime "github.com/term-llm/term-llm/internal/app/runtime"
 	runapproval "github.com/term-llm/term-llm/internal/app/runtime/approval"
 	appserve "github.com/term-llm/term-llm/internal/app/serve"
-	"github.com/term-llm/term-llm/internal/config"
 	"github.com/term-llm/term-llm/internal/llm"
 	"github.com/term-llm/term-llm/internal/llm/core"
 	"github.com/term-llm/term-llm/internal/session"
@@ -28,15 +27,12 @@ type preparedAskConversation struct {
 
 // prepareAskConversation establishes/refreshes durable session inputs and then
 // projects system, active history, grounding, and the new user message in order.
-func prepareAskConversation(ctx context.Context, cfg *config.Config, provider core.Provider, agent *agents.Agent, store session.Store, sess *session.Session, sessionID string, resuming bool, settings appserve.SessionSettings, ticket *appserve.SessionInputTicket, basePrompt string, userMessage core.Message, approval tools.ApprovalMode) (preparedAskConversation, error) {
+func prepareAskConversation(ctx context.Context, selected appruntime.ModelSelection, provider core.Provider, agent *agents.Agent, store session.Store, sess *session.Session, sessionID string, resuming bool, settings appserve.SessionSettings, ticket *appserve.SessionInputTicket, basePrompt string, userMessage core.Message, approval tools.ApprovalMode) (preparedAskConversation, error) {
 	if !resuming && store != nil {
 		if sessionID == "" {
 			sessionID = session.NewID()
 		}
-		model := ""
-		if providerCfg := cfg.GetActiveProviderConfig(); providerCfg != nil {
-			model = providerCfg.Model
-		}
+		model := selected.Model
 		if model == "" {
 			model = appruntime.ExtractModelFromProviderName(provider.Name())
 		}
@@ -45,7 +41,7 @@ func prepareAskConversation(ctx context.Context, cfg *config.Config, provider co
 			agentName = agents.Reference(agent)
 		}
 		now := time.Now()
-		sess = &session.Session{ID: sessionID, Provider: provider.Name(), Model: model, Mode: session.ModeAsk, Agent: agentName, CreatedAt: now, UpdatedAt: now, Search: settings.Search, Tools: settings.Tools, MCP: settings.MCP, ApprovalMode: runapproval.ForColdPersistence(approval), Status: session.StatusActive}
+		sess = &session.Session{ID: sessionID, Provider: provider.Name(), ProviderKey: selected.Provider, Model: model, Mode: session.ModeAsk, Agent: agentName, CreatedAt: now, UpdatedAt: now, Search: settings.Search, Tools: settings.Tools, MCP: settings.MCP, ApprovalMode: runapproval.ForColdPersistence(approval), Status: session.StatusActive}
 		sess.CWD = settings.PrimaryWorkspace
 		_ = store.Create(ctx, sess)
 	}

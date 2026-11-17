@@ -39,6 +39,7 @@ func (m *Model) CurrentAgentMentionEngine() *engine.Engine {
 
 func (m *Model) replaceEngine(engine *engine.Engine) {
 	m.engine = engine
+	m.contextSessionID = ""
 	m.agentMentionEngine.Store(engine)
 	if m.discoveryPlanner != nil {
 		m.discoveryPlanner.AttachEngine(engine)

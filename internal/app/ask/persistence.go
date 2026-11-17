@@ -61,7 +61,7 @@ func newAskResponseCompletedCallback(persistence *AssistantPersistence, turnStar
 	}
 }
 
-func newAskTurnCompletedCallback(persistence *AssistantPersistence, store session.Store, sess **session.Session, engine *engine.Engine, turnStart *time.Time) engine.TurnCompletedCallback {
+func newAskTurnCompletedCallback(persistence *AssistantPersistence, store session.Store, sess **session.Session, engine *engine.Engine, turnStart *time.Time, keepReportedWindow bool) engine.TurnCompletedCallback {
 	if persistence == nil {
 		return nil
 	}
@@ -91,9 +91,11 @@ func newAskTurnCompletedCallback(persistence *AssistantPersistence, store sessio
 			InputTokens: metrics.InputTokens, OutputTokens: metrics.OutputTokens,
 			CachedInputTokens: metrics.CachedInputTokens, CacheWriteTokens: metrics.CacheWriteTokens,
 		}, metrics.ToolCalls)
-		if total, count := engine.ContextEstimateBaseline(); total > 0 {
-			_ = store.UpdateContextEstimate(ctx, current.ID, total, count)
-			current.LastTotalTokens, current.LastMessageCount = total, count
+		if total, count, window := engine.ContextEstimateSnapshot(); total > 0 {
+			if !keepReportedWindow {
+				window = 0
+			}
+			_ = session.PersistContextEstimate(ctx, store, current, total, count, window)
 		}
 		return nil
 	}
@@ -172,12 +174,12 @@ func (p *PersistenceCallbacks) WrapOutputTool(enabled bool, messages *[]core.Mes
 	}
 }
 
-func PrepareAskPersistenceCallbacks(ctx context.Context, cfg *config.Config, store session.Store, sess **session.Session, engine *engine.Engine, turnStart *time.Time, instructions string, historyHasSystem, resuming bool, messages []core.Message, conversationStartedAt time.Time, userMessage core.Message, question string, compactionHooks CompactionHooks) PersistenceCallbacks {
+func PrepareAskPersistenceCallbacks(ctx context.Context, cfg *config.Config, store session.Store, sess **session.Session, engine *engine.Engine, turnStart *time.Time, instructions string, historyHasSystem, resuming, keepReportedWindow bool, messages []core.Message, conversationStartedAt time.Time, userMessage core.Message, question string, compactionHooks CompactionHooks) PersistenceCallbacks {
 	persistence := initializeAskPersistence(ctx, cfg, store, *sess, instructions, historyHasSystem, resuming, messages, conversationStartedAt, userMessage, question)
 	return PersistenceCallbacks{
 		Persistence:       persistence,
 		ResponseCompleted: newAskResponseCompletedCallback(persistence, turnStart),
-		TurnCompleted:     newAskTurnCompletedCallback(persistence, store, sess, engine, turnStart),
+		TurnCompleted:     newAskTurnCompletedCallback(persistence, store, sess, engine, turnStart, keepReportedWindow),
 		SyntheticUser:     newAskSyntheticUserCallback(store, sess, turnStart),
 		AssistantSnapshot: newAskAssistantSnapshotCallback(persistence, turnStart),
 		Compaction:        newAskCompactionCallback(store, sess, compactionHooks),

@@ -12,7 +12,7 @@ import (
 // Increment when adding new migrations.
 const (
 	projectSchemaVersion = 47
-	schemaVersion        = 69
+	schemaVersion        = 70
 )
 
 // migration represents a schema migration.
@@ -32,6 +32,19 @@ func migratePushClientKindV67(db schemaExecutor) error {
 	if !exists {
 		if _, err := db.Exec(`ALTER TABLE push_subscriptions ADD COLUMN client_kind TEXT NOT NULL DEFAULT 'browser' CHECK (client_kind IN ('browser', 'app'))`); err != nil {
 			return fmt.Errorf("add push_subscriptions.client_kind: %w", err)
+		}
+	}
+	return nil
+}
+
+func migrateLastContextWindowV70(db schemaExecutor) error {
+	exists, err := sqliteutil.ColumnExists(db, "sessions", "last_context_window")
+	if err != nil {
+		return fmt.Errorf("inspect sessions.last_context_window: %w", err)
+	}
+	if !exists {
+		if _, err := db.Exec(`ALTER TABLE sessions ADD COLUMN last_context_window INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("add sessions.last_context_window: %w", err)
 		}
 	}
 	return nil

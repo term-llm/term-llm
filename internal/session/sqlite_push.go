@@ -183,6 +183,7 @@ func (s *SQLiteStore) setCurrentColumns() {
 	s.hasTitleSkippedAt = true
 	s.hasLastUserMessageAt = true
 	s.hasLastMessageAt = true
+	s.hasLastContextWindow = true
 	s.hasLastTotalTokens = true
 	s.hasLastMessageCount = true
 	s.hasMessageCount = true
@@ -279,6 +280,8 @@ func (s *SQLiteStore) probeSessionColumns() {
 			s.hasLastUserMessageAt = true
 		case "last_message_at":
 			s.hasLastMessageAt = true
+		case "last_context_window":
+			s.hasLastContextWindow = true
 		case "last_total_tokens":
 			s.hasLastTotalTokens = true
 		case "last_message_count":
@@ -386,7 +389,7 @@ func (s *SQLiteStore) sessionSelectCols() string {
 	if s.hasCacheWriteTokens {
 		base += ", cache_write_tokens"
 	}
-	base += ", output_tokens"
+	base += ", output_tokens, " + s.contextWindowColumn()
 	if s.hasLastTotalTokens {
 		base += ", last_total_tokens"
 	}
@@ -448,7 +451,7 @@ func scanSessionRow(row *sql.Row, hasGeneratedTitles, hasCacheWriteTokens, hasCo
 	if hasCacheWriteTokens {
 		scanArgs = append(scanArgs, &sess.CacheWriteTokens)
 	}
-	scanArgs = append(scanArgs, &sess.OutputTokens)
+	scanArgs = append(scanArgs, &sess.OutputTokens, &sess.LastContextWindow)
 	if hasLastTotalTokens {
 		scanArgs = append(scanArgs, &sess.LastTotalTokens)
 	}

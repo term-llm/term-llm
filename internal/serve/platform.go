@@ -17,6 +17,7 @@ type SessionRuntime struct {
 	Engine       *engine.Engine
 	Provider     core.Provider
 	ProviderName string
+	ProviderKey  string // Configuration key; ProviderName is the human-readable label.
 	ModelName    string
 	Cleanup      func()
 	SystemPrompt *string // Rendered per-session prompt; nil falls back to platform defaults.

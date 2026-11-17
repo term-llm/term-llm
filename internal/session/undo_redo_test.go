@@ -103,6 +103,9 @@ func TestSQLiteUndoRedoShrinksAndExactlyRestoresTranscriptAcrossRestart(t *testi
 	addUndoRedoMessage(t, store, sess.ID, assistant, base.Add(3*time.Second))
 	addUndoRedoMessage(t, store, sess.ID, core.Message{Role: core.RoleEvent, Parts: []core.Part{{Type: core.PartText, Text: "tail event"}}}, base.Add(4*time.Second))
 
+	if err := store.UpdateContextEstimateWithWindow(ctx, sess.ID, 200, 4, 2048); err != nil {
+		t.Fatal(err)
+	}
 	before, err := store.GetMessages(ctx, sess.ID, 0, 0)
 	if err != nil {
 		t.Fatalf("GetMessages before: %v", err)
@@ -132,7 +135,7 @@ func TestSQLiteUndoRedoShrinksAndExactlyRestoresTranscriptAcrossRestart(t *testi
 	if err != nil {
 		t.Fatalf("Get session after undo: %v", err)
 	}
-	if refreshed.UserTurns != 2 || refreshed.Summary != "first" || refreshed.LastTotalTokens != 0 || refreshed.TitleSource == TitleSourceGenerated {
+	if refreshed.UserTurns != 2 || refreshed.Summary != "first" || refreshed.LastTotalTokens != 0 || refreshed.LastContextWindow != 0 || refreshed.TitleSource == TitleSourceGenerated {
 		t.Fatalf("derived metadata was not reconciled without decreasing user turns: %+v", refreshed)
 	}
 	if err := store.Close(); err != nil {

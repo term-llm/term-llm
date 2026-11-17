@@ -2,6 +2,7 @@ package serve
 
 import (
 	"bytes"
+	"cmp"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -1210,13 +1211,11 @@ func persistedContextUsage(sess *session.Session, provider string) *serveContext
 	if sess == nil || sess.LastTotalTokens <= 0 {
 		return nil
 	}
-	if strings.TrimSpace(provider) == "" {
-		provider = strings.TrimSpace(sess.ProviderKey)
+	provider = cmp.Or(strings.TrimSpace(provider), strings.TrimSpace(sess.ProviderKey), strings.TrimSpace(sess.Provider))
+	inputLimit := sess.LastContextWindow
+	if inputLimit <= 0 {
+		inputLimit = llm.InputLimitForProviderModel(provider, sess.Model)
 	}
-	if strings.TrimSpace(provider) == "" {
-		provider = strings.TrimSpace(sess.Provider)
-	}
-	inputLimit := llm.InputLimitForProviderModel(provider, sess.Model)
 	return &serveContextUsage{
 		UsedTokens:        sess.LastTotalTokens,
 		InputLimit:        inputLimit,

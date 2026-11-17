@@ -710,15 +710,7 @@ func (m *telegramSessionMgr) getOrCreate(ctx context.Context, chatID int64) (*te
 	}
 
 	if restoring {
-		created.meta = saved.Meta
-		created.history = saved.History
-		created.activeHistory = saved.ActiveHistory
-		_, created.conversationStartPersisted = llm.ConversationStartFrom(created.history)
-		created.systemPromptPersisted = saved.PromptPersisted
-		created.carryoverContext = saved.CarryoverContext
-		created.carryoverContextLabel = saved.CarryoverLabel
-		created.carryoverMessageCount = saved.CarryoverCount
-		created.lastActivity = saved.LastActivity
+		created.restoreReloadChat(saved)
 	}
 	m.mu.Lock()
 	if existing, ok := m.sessions[chatID]; ok {
@@ -982,19 +974,20 @@ func (m *telegramSessionMgr) newSession(ctx context.Context, chatID int64) (*tel
 	}
 
 	meta := &session.Session{
-		ID:        session.NewID(),
-		Name:      fmt.Sprintf("telegram:%d", chatID),
-		Provider:  providerName,
-		Model:     modelName,
-		Mode:      session.ModeChat,
-		Origin:    session.OriginTelegram,
-		Agent:     m.settings.Agent,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Search:    m.settings.Search,
-		Tools:     m.settings.Tools,
-		MCP:       m.settings.MCP,
-		Status:    session.StatusActive,
+		ID:          session.NewID(),
+		Name:        fmt.Sprintf("telegram:%d", chatID),
+		Provider:    providerName,
+		ProviderKey: runtime.ProviderKey,
+		Model:       modelName,
+		Mode:        session.ModeChat,
+		Origin:      session.OriginTelegram,
+		Agent:       m.settings.Agent,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		Search:      m.settings.Search,
+		Tools:       m.settings.Tools,
+		MCP:         m.settings.MCP,
+		Status:      session.StatusActive,
 	}
 	if cwd, cwdErr := os.Getwd(); cwdErr == nil {
 		meta.CWD = cwd

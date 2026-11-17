@@ -292,7 +292,7 @@ func Run(ctx context.Context, args []string, opts Options, deps Dependencies) er
 	if selectedInputs == nil {
 		settings.SystemPrompt = appserve.InjectSkillsMetadata(settings.SystemPrompt, skillsSetup)
 	}
-	preparedConversation, err := prepareAskConversation(ctx, cfg, provider, agent, store, sess, sessionID, resuming, settings, inputTicket, baseInputPrompt, preparedInput.Message, resolvedApproval.Mode)
+	preparedConversation, err := prepareAskConversation(ctx, askSelected, provider, agent, store, sess, sessionID, resuming, settings, inputTicket, baseInputPrompt, preparedInput.Message, resolvedApproval.Mode)
 	if err != nil {
 		return err
 	}
@@ -377,9 +377,13 @@ func Run(ctx context.Context, args []string, opts Options, deps Dependencies) er
 	// Save the initial transcript and construct callbacks before streaming.
 	turnStartTime := time.Now()
 	var compactionUsages compactionUsageCollector
+	savedEstimate := askContextEstimate(cfg, sess)
+	// An Ask override does not relabel the saved session. Never attach the
+	// override's reported window to the original provider/model on disk.
+	keepReportedWindow := !resuming || (savedEstimate.Provider == askSelected.Provider && savedEstimate.Model == askSelected.Model)
 	persistenceCallbacks := PrepareAskPersistenceCallbacks(
 		ctx, cfg, store, &sess, engine, &turnStartTime, instructions, historyHasSystem,
-		resuming, messages, conversationStartedAt, preparedInput.Message, question, CompactionHooks{Record: compactionUsages.add},
+		resuming, keepReportedWindow, messages, conversationStartedAt, preparedInput.Message, question, CompactionHooks{Record: compactionUsages.add},
 	)
 	if persistenceCallbacks.Persistence != nil && persistenceCallbacks.Persistence.InitialUserPersisted {
 		keepStagedInput = true
@@ -453,49 +457,43 @@ func Run(ctx context.Context, args []string, opts Options, deps Dependencies) er
 	includeConfiguredTools := false
 	searchEnabled := settings.Search
 	forceExternalSearch := req.ForceExternalSearch
-	contextEstimateTotal, contextEstimateCount := 0, 0
-	if sess != nil {
-		contextEstimateTotal = sess.LastTotalTokens
-		contextEstimateCount = sess.LastMessageCount
-	}
 	baseRunReq := runpkg.Request{
-		Platform:                    runpkg.PlatformConsole,
-		AgentName:                   agents.Reference(agent),
-		Resume:                      resuming,
-		Messages:                    messages,
-		Engine:                      engine,
-		ProviderInstance:            provider,
-		SessionID:                   sessionID,
-		DeferSession:                true,
-		DisableRuntimePersistence:   true,
-		Provider:                    opts.Provider,
-		Model:                       bootstrap.ActiveModel(cfg),
-		Tools:                       settings.Tools,
-		ReadDirs:                    append([]string(nil), opts.ReadDirs...),
-		WriteDirs:                   append([]string(nil), opts.WriteDirs...),
-		ShellAllow:                  append([]string(nil), opts.ShellAllow...),
-		MCP:                         settings.MCP,
-		MCPExplicit:                 opts.Changed.MCP,
-		Skills:                      opts.Skills,
-		SystemMessage:               instructions,
-		MaxTurns:                    settings.MaxTurns,
-		MaxTurnsSet:                 true,
-		MaxOutputTokens:             settings.MaxOutputTokens,
-		Search:                      &searchEnabled,
-		Debug:                       debugMode,
-		DebugRaw:                    opts.DebugRaw,
-		ForceExternalSearch:         &forceExternalSearch,
-		DisableExternalWebFetch:     opts.NoWebFetch,
-		ExtraTools:                  append([]core.ToolSpec(nil), req.Tools...),
-		IncludeConfiguredTools:      &includeConfiguredTools,
-		EnableToolDiscovery:         req.EnableToolDiscovery,
-		OnAssistantSnapshot:         assistantSnapshotCallback,
-		OnResponseCompleted:         responseCompletedCallback,
-		OnTurnCompleted:             turnCompletedCallback,
-		OnCompaction:                compactionCallback,
-		OnSyntheticUserMessage:      persistSyntheticUserMessage,
-		ContextEstimateTotalTokens:  contextEstimateTotal,
-		ContextEstimateMessageCount: contextEstimateCount,
+		Platform:                  runpkg.PlatformConsole,
+		AgentName:                 agents.Reference(agent),
+		Resume:                    resuming,
+		Messages:                  messages,
+		Engine:                    engine,
+		ProviderInstance:          provider,
+		SessionID:                 sessionID,
+		DeferSession:              true,
+		DisableRuntimePersistence: true,
+		Provider:                  opts.Provider,
+		Model:                     bootstrap.ActiveModel(cfg),
+		Tools:                     settings.Tools,
+		ReadDirs:                  append([]string(nil), opts.ReadDirs...),
+		WriteDirs:                 append([]string(nil), opts.WriteDirs...),
+		ShellAllow:                append([]string(nil), opts.ShellAllow...),
+		MCP:                       settings.MCP,
+		MCPExplicit:               opts.Changed.MCP,
+		Skills:                    opts.Skills,
+		SystemMessage:             instructions,
+		MaxTurns:                  settings.MaxTurns,
+		MaxTurnsSet:               true,
+		MaxOutputTokens:           settings.MaxOutputTokens,
+		Search:                    &searchEnabled,
+		Debug:                     debugMode,
+		DebugRaw:                  opts.DebugRaw,
+		ForceExternalSearch:       &forceExternalSearch,
+		DisableExternalWebFetch:   opts.NoWebFetch,
+		ExtraTools:                append([]core.ToolSpec(nil), req.Tools...),
+		IncludeConfiguredTools:    &includeConfiguredTools,
+		EnableToolDiscovery:       req.EnableToolDiscovery,
+		OnAssistantSnapshot:       assistantSnapshotCallback,
+		OnResponseCompleted:       responseCompletedCallback,
+		OnTurnCompleted:           turnCompletedCallback,
+		OnCompaction:              compactionCallback,
+		OnSyntheticUserMessage:    persistSyntheticUserMessage,
+		ContextEstimate:           savedEstimate,
 	}
 	applyRunResult := func(result runpkg.Result) {
 		if result.ProviderInstance != nil {

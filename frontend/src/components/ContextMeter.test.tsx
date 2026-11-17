@@ -75,6 +75,20 @@ describe('header context meter', () => {
     expect(screen.queryByRole('dialog', { name: 'Context window' })).toBeNull();
   });
 
+  it('marks Claude Code’s threshold and names it before and after the point', async () => {
+    const contextUsage = reading({ providerAutoCompactAt: 80_000 });
+    const app = renderHeader({ contextUsage });
+    await userEvent.click(meter());
+    const card = await screen.findByRole('dialog', { name: 'Context window' });
+    expect(card).toHaveTextContent('auto-compact 80k');
+    expect(card).toHaveTextContent('44.8k tokens left before Claude Code’s auto-compaction point.');
+    expect(card).not.toHaveTextContent('term-llm');
+    act(() =>
+      app.sessionStore.patch('s1', { contextUsage: { ...contextUsage, usedTokens: 82_000 } }),
+    );
+    expect(card).toHaveTextContent('Claude Code’s auto-compaction point has been reached.');
+  });
+
   it('marks no compaction point when term-llm does not compact this context', async () => {
     renderHeader({ contextUsage: reading({ autoCompactAt: undefined }) });
     await userEvent.click(meter());

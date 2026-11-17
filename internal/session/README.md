@@ -108,3 +108,12 @@ provider context. The previous v68 binary rejects the new marker for writes;
 read-only queries ignore the new fields. Stop older writers before upgrading;
 restore a backup to downgrade. Old binaries rewriting pairing grants drop their
 approver snapshots, so those devices need pairing again.
+
+## Last context window (schema 70)
+
+Migration 70 adds `sessions.last_context_window INTEGER NOT NULL DEFAULT 0`,
+the context window size in effect when the session last reported token usage;
+zero means unknown. The previous v69 binary rejects the v70 marker for writes.
+Read-only v69 databases lack the column, so read-only stores probe for it and
+treat the window as unknown. Stop older writers before upgrading; restore a
+backup to downgrade.

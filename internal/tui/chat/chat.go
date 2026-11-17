@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -170,6 +171,7 @@ type Model struct {
 	// one before its first write and hands it to startStream; the running turn's
 	// claim stays reachable for suspend/reload.
 	pendingTurnLease atomic.Pointer[turnLease]
+	contextSessionID string // Session whose context reading is attached to the engine
 	activeTurnLease  atomic.Pointer[turnLease]
 	// Terminal presence is UI-owned; lease finalization reports back via a message.
 	lastPresenceAt   time.Time
@@ -1325,45 +1327,55 @@ func (m *Model) seedStatsFromSession() {
 	m.stats.SeedTotals(m.sess.InputTokens, m.sess.OutputTokens, m.sess.CachedInputTokens, m.sess.CacheWriteTokens, m.sess.ToolCalls, m.sess.LLMTurns+m.sess.CompactionCount)
 }
 
+func (m *Model) contextIdentities() (savedProvider, savedModel, provider, model string) {
+	savedProvider = cmp.Or(strings.TrimSpace(m.sess.ProviderKey), strings.TrimSpace(m.sess.Provider))
+	savedModel = strings.TrimSpace(m.sess.Model)
+	provider = cmp.Or(strings.TrimSpace(m.providerKey), savedProvider)
+	model = cmp.Or(strings.TrimSpace(m.modelName), savedModel)
+	return
+}
+
 func (m *Model) configureContextManagementForSession() {
 	if m == nil || m.engine == nil || m.provider == nil || m.config == nil || m.sess == nil {
 		return
 	}
 
-	providerForLimits := strings.TrimSpace(m.sess.ProviderKey)
-	if providerForLimits == "" {
-		providerForLimits = strings.TrimSpace(m.providerKey)
-	}
-	if providerForLimits == "" {
-		providerForLimits = strings.TrimSpace(m.sess.Provider)
-	}
-
-	modelForLimits := strings.TrimSpace(m.sess.Model)
-	if modelForLimits == "" {
-		modelForLimits = strings.TrimSpace(m.modelName)
-	}
-	if modelForLimits == "" {
+	savedProvider, savedModel, provider, model := m.contextIdentities()
+	if model == "" {
 		return
 	}
-
-	m.engine.ConfigureContextManagement(m.provider, providerForLimits, modelForLimits, m.config.AutoCompact)
+	m.engine.ConfigureContextManagement(m.provider, provider, model, m.config.AutoCompact)
+	if m.contextSessionID == m.sess.ID {
+		return
+	}
+	// A different session may use the exact same provider and model. Discard
+	// the outgoing reading, but never replace a live one on per-turn configure.
+	previous := m.contextSessionID
+	m.contextSessionID = m.sess.ID
+	if previous != "" {
+		m.engine.SetContextEstimateBaseline(0, 0)
+	} else if total, _, _ := m.engine.ContextEstimateSnapshot(); total > 0 {
+		// Initial attachment can receive an engine that is already live.
+		return
+	}
 	m.engine.SetContextEstimateBaseline(m.sess.LastTotalTokens, m.sess.LastMessageCount)
+	m.engine.RestoreReportedWindow(savedProvider, savedModel, m.sess.LastTotalTokens, m.sess.LastContextWindow)
 }
 
 func (m *Model) persistContextEstimate(ctx context.Context) {
 	if m == nil || m.store == nil || m.sess == nil || m.engine == nil {
 		return
 	}
-	total, count := m.engine.ContextEstimateBaseline()
-	if total <= 0 {
-		if m.sess.LastTotalTokens != 0 || m.sess.LastMessageCount != 0 {
-			_ = session.ResetContextEstimate(ctx, m.store, m.sess)
-		}
+	total, count, window := m.engine.ContextEstimateSnapshot()
+	if total == 0 && m.sess.LastTotalTokens == 0 && m.sess.LastMessageCount == 0 && m.sess.LastContextWindow == 0 {
 		return
 	}
-	_ = m.store.UpdateContextEstimate(ctx, m.sess.ID, total, count)
-	m.sess.LastTotalTokens = total
-	m.sess.LastMessageCount = count
+	// Totals follow the transcript, but the reported window belongs to the active model.
+	savedProvider, savedModel, provider, model := m.contextIdentities()
+	if savedProvider != provider || savedModel != model {
+		window = 0
+	}
+	_ = session.PersistContextEstimate(ctx, m.store, m.sess, total, count, window)
 }
 
 func (m *Model) resetContextEstimateBaseline(ctx context.Context) {
@@ -1379,11 +1391,12 @@ func (m *Model) resetContextEstimateBaseline(ctx context.Context) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if m.store != nil && (m.sess.LastTotalTokens != 0 || m.sess.LastMessageCount != 0) {
+	if m.store != nil && (m.sess.LastTotalTokens != 0 || m.sess.LastMessageCount != 0 || m.sess.LastContextWindow != 0) {
 		_ = session.ResetContextEstimate(ctx, m.store, m.sess)
 	}
 	m.sess.LastTotalTokens = 0
 	m.sess.LastMessageCount = 0
+	m.sess.LastContextWindow = 0
 }
 
 // WantsReload reports whether the user requested a binary reload via /reload.

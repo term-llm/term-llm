@@ -30,6 +30,7 @@ type SQLiteStore struct {
 	hasLastMessageAt         bool // true if sessions table has last_message_at column
 	hasLastTotalTokens       bool // true if sessions table has last_total_tokens column
 	hasLastMessageCount      bool // true if sessions table has last_message_count column
+	hasLastContextWindow     bool // true if sessions table has last_context_window column
 	hasMessageCount          bool // true if sessions table has message_count column
 	hasReasoningEffort       bool // true if sessions table has reasoning_effort column
 	hasReasoningMode         bool // true if sessions table has reasoning_mode column
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     cache_write_tokens INTEGER DEFAULT 0,
     output_tokens INTEGER DEFAULT 0,
     last_total_tokens INTEGER DEFAULT 0,
+    last_context_window INTEGER NOT NULL DEFAULT 0,
     last_message_count INTEGER DEFAULT 0,
     message_count INTEGER DEFAULT 0,
     status TEXT DEFAULT 'active',

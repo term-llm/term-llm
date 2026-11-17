@@ -305,14 +305,7 @@ func (m *Model) switchModelWithOptions(providerModel string, opts switchModelOpt
 	}
 
 	// Keep session metadata aligned so future resume restores correct runtime.
-	if m.sess != nil {
-		m.sess.Provider = m.providerName
-		m.sess.ProviderKey = m.providerKey
-		m.sess.Model = modelName
-		if m.store != nil {
-			_ = m.store.Update(context.Background(), m.sess)
-		}
-	}
+	m.updateSessionModel(m.providerName, m.providerKey, modelName)
 
 	// Record model usage for MRU ordering in the picker
 	m.recordCurrentModelUse()

@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -649,6 +650,7 @@ func applyPersistedContextEstimate(engine *engine.Engine, sess *session.Session)
 		return
 	}
 	engine.SetContextEstimateBaseline(sess.LastTotalTokens, sess.LastMessageCount)
+	engine.RestoreReportedWindow(cmp.Or(sess.ProviderKey, sess.Provider), sess.Model, sess.LastTotalTokens, sess.LastContextWindow)
 }
 
 // SetupSkills initializes the skills system if enabled.

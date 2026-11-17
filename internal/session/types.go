@@ -110,6 +110,7 @@ type Session struct {
 	CacheWriteTokens  int           `json:"cache_write_tokens,omitempty"`  // Total tokens written to cache (cache misses)
 	OutputTokens      int           `json:"output_tokens,omitempty"`       // Total output tokens used
 	LastTotalTokens   int           `json:"last_total_tokens,omitempty"`   // Last observed request context size (input+cached+output)
+	LastContextWindow int           `json:"last_context_window,omitempty"` // Context limit paired with LastTotalTokens; zero if unknown
 	LastMessageCount  int           `json:"last_message_count,omitempty"`  // Legacy checkpoint count; estimator uses structural delta
 	MessageCount      int           `json:"message_count,omitempty"`       // User/assistant conversation messages visible as chat bubbles
 	Status            SessionStatus `json:"status,omitempty"`              // Session status

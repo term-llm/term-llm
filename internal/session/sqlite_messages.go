@@ -1029,6 +1029,7 @@ func (s *SQLiteStore) recomputeTranscriptMetadata(ctx context.Context, q sqliteQ
 		"updated_at = ?",
 		"summary = ?",
 		"last_total_tokens = 0",
+		"last_context_window = 0",
 		"last_message_count = 0",
 	}
 	args := []any{time.Now(), summary}

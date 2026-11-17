@@ -431,3 +431,28 @@ func TestChatHandoverNilCommandMigration(t *testing.T) {
 		t.Fatal("nil helper must still provide skills cleanup")
 	}
 }
+
+func TestRelabelResumedSessionContextWindow(t *testing.T) {
+	const window = 32000
+	for _, tc := range []struct {
+		name, provider, key, model string
+		want                       int
+	}{
+		{"unresolved provider fallback", "retired", "retired", "fast", 0},
+		{"provider label changed", "old label", "debug", "fast", 0},
+		{"provider key changed", "debug:fast", "other", "fast", 0},
+		{"model changed", "debug:fast", "debug", "old", 0},
+		{"same identity", "debug:fast", "debug", "fast", window},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sess := &session.Session{Provider: tc.provider, ProviderKey: tc.key, Model: tc.model, LastContextWindow: window}
+			relabelResumedSession(sess, "debug:fast", "debug", "fast")
+			if got := sess.LastContextWindow; got != tc.want {
+				t.Errorf("LastContextWindow = %d, want %d", got, tc.want)
+			}
+			if sess.Provider != "debug:fast" || sess.ProviderKey != "debug" || sess.Model != "fast" {
+				t.Errorf("resumed identity = (%q, %q, %q)", sess.Provider, sess.ProviderKey, sess.Model)
+			}
+		})
+	}
+}

@@ -629,3 +629,30 @@ func TestServeStatsIgnoresBackgroundScriptChildEvents(t *testing.T) {
 		t.Fatal("background child event changed the current model attempt's accounting")
 	}
 }
+
+func TestStatsLiveUsageMustNotInheritStoredWindow(t *testing.T) {
+	p := mockprovider.NewMockProvider("mock").WithCapabilities(core.Capabilities{ManagesOwnContext: true}).AddTurn(mockprovider.MockTurn{Text: "done", Context: &core.ContextUsage{UsedTokens: 321}})
+	rt := &serveRuntime{provider: p, engine: engine.NewEngine(p, nil)}
+	_, err := rt.RunWithEvents(t.Context(), false, false, []core.Message{core.UserText("hi")}, core.Request{Model: "opus", MaxTurns: 2}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta := &session.Session{ProviderKey: "claude-bin", Model: "opus", LastTotalTokens: 100, LastContextWindow: 1000000}
+	header := contextUsageSnapshot(rt.engine, nil, 0)
+	if header == nil || header.InputLimit != 0 || header.UsedTokens != 321 {
+		t.Fatalf("unexpected header %+v", header)
+	}
+	var out serveStatsResponse
+	appendStatsContextSections(&out, meta, nil, rt, "session")
+	rows := map[string]string{}
+	for _, sec := range out.Sections {
+		if sec.Title == "Current Context / Window Pressure" {
+			for _, row := range sec.Rows {
+				rows[row.Label] = row.Value
+			}
+		}
+	}
+	if rows["Current context"] != "321" || rows["Input limit"] != "unavailable" || rows["Window used"] != "" || rows["Free space"] != "" {
+		t.Fatalf("stats mixed live and saved readings: %v", rows)
+	}
+}

@@ -39,108 +39,39 @@ func (s *SQLiteStore) Create(ctx context.Context, sess *Session) error {
 		// Use a single INSERT statement with a subquery to atomically assign the
 		// next session number. This avoids race conditions where two concurrent
 		// Creates could read the same MAX(number).
-		reasoningEffortCol := ""
-		reasoningEffortPlaceholder := ""
-		var reasoningEffortArgs []any
-		if s.hasReasoningEffort {
-			reasoningEffortCol = ", reasoning_effort"
-			reasoningEffortPlaceholder = ", ?"
-			reasoningEffortArgs = []any{nullString(sess.ReasoningEffort)}
-		}
-		reasoningModeCol := ""
-		reasoningModePlaceholder := ""
-		var reasoningModeArgs []any
-		if s.hasReasoningMode {
-			reasoningModeCol = ", reasoning_mode"
-			reasoningModePlaceholder = ", ?"
-			reasoningModeArgs = []any{nullString(sess.ReasoningMode)}
-		}
-		approvalModeCol := ""
-		approvalModePlaceholder := ""
-		var approvalModeArgs []any
-		if s.hasApprovalMode {
-			approvalModeCol = ", approval_mode"
-			approvalModePlaceholder = ", ?"
-			approvalModeArgs = []any{nullString(string(sess.ApprovalMode))}
-		}
-		worktreeDirCol := ""
-		worktreeDirPlaceholder := ""
-		var worktreeDirArgs []any
-		if s.hasWorktreeDir {
-			worktreeDirCol = ", worktree_dir"
-			worktreeDirPlaceholder = ", ?"
-			worktreeDirArgs = []any{nullString(sess.WorktreeDir)}
-		}
-		projectIDCol := ""
-		projectIDPlaceholder := ""
-		var projectIDArgs []any
-		if s.hasProjectID {
-			projectIDCol = ", project_id"
-			projectIDPlaceholder = ", ?"
-			projectIDArgs = []any{nullString(sess.ProjectID)}
-		}
-		goalCol := ""
-		goalPlaceholder := ""
-		var goalArgs []any
-		if s.hasGoal {
-			goalCol = ", goal"
-			goalPlaceholder = ", ?"
-			goalArgs = []any{goalJSONString(sess.Goal)}
-		}
-		shareCol := ""
-		sharePlaceholder := ""
-		var shareArgs []any
-		if s.hasShare {
-			shareCol = ", share"
-			sharePlaceholder = ", ?"
-			shareArgs = []any{shareJSONString(sess.Share)}
-		}
-		modelPolicyCol := ""
-		modelPolicyPlaceholder := ""
-		var modelPolicyArgs []any
-		if s.hasModelPolicy {
-			modelPolicyCol = ", model_policy"
-			modelPolicyPlaceholder = ", ?"
-			modelPolicyArgs = []any{sessionModelPolicyJSON(sess.ModelPolicy)}
-		}
-		pinOrderCol := ""
-		pinOrderPlaceholder := ""
-		var pinOrderArgs []any
-		if s.hasPinOrder {
-			// A session created pinned goes after every existing pin, exactly
-			// like one pinned later. One statement keeps the rank unique.
-			pinOrderCol = ", pin_order"
-			pinOrderPlaceholder = ", CASE WHEN ? THEN (SELECT COALESCE(MAX(pin_order), 0) + 1 FROM sessions WHERE COALESCE(pinned, FALSE)) END"
-			pinOrderArgs = []any{sess.Pinned}
-		}
 		insertArgs := []any{
 			sess.ID, sess.Name, sess.Summary, nullString(sess.GeneratedShortTitle), nullString(sess.GeneratedLongTitle), nullString(string(sess.TitleSource)), nullTime(sess.TitleGeneratedAt), sess.TitleBasisMsgSeq, nullTime(sess.TitleSkippedAt),
-			sess.Provider, nullString(sess.ProviderKey), sess.Model, string(sess.Mode),
-		}
-		insertArgs = append(insertArgs, approvalModeArgs...)
-		insertArgs = append(insertArgs,
-			nullString(string(sess.Origin)), nullString(sess.Agent), sess.CWD,
-		)
-		insertArgs = append(insertArgs, worktreeDirArgs...)
-		insertArgs = append(insertArgs, projectIDArgs...)
-		insertArgs = append(insertArgs,
-			sess.CreatedAt, sess.UpdatedAt, sess.Archived, sess.Pinned, nullString(sess.ParentID),
-			sess.Search, nullString(sess.Tools), nullString(sess.MCP),
+			sess.Provider, nullString(sess.ProviderKey), sess.Model, string(sess.Mode), nullString(string(sess.Origin)), nullString(sess.Agent), sess.CWD,
+			sess.CreatedAt, sess.UpdatedAt, sess.Archived, sess.Pinned, nullString(sess.ParentID), sess.Search, nullString(sess.Tools), nullString(sess.MCP),
 			sess.UserTurns, sess.LLMTurns, sess.ToolCalls, sess.InputTokens, sess.CachedInputTokens, sess.CacheWriteTokens, sess.OutputTokens,
 			sess.LastTotalTokens, sess.LastMessageCount, string(sess.Status), nullString(sess.Tags),
-		)
-		insertArgs = append(insertArgs, goalArgs...)
-		insertArgs = append(insertArgs, shareArgs...)
-		insertArgs = append(insertArgs, reasoningEffortArgs...)
-		insertArgs = append(insertArgs, reasoningModeArgs...)
-		insertArgs = append(insertArgs, pinOrderArgs...)
-		insertArgs = append(insertArgs, modelPolicyArgs...)
+		}
+		baseValues := "?, (SELECT COALESCE(MAX(number), 0) + 1 FROM sessions)" + strings.Repeat(", ?", len(insertArgs)-1)
+		var columns, values string
+		add := func(enabled bool, column, valueSQL string, arg any) {
+			if enabled {
+				columns += ", " + column
+				values += ", " + valueSQL
+				insertArgs = append(insertArgs, arg)
+			}
+		}
+		add(s.hasLastContextWindow, "last_context_window", "?", max(0, sess.LastContextWindow))
+		add(s.hasApprovalMode, "approval_mode", "?", nullString(string(sess.ApprovalMode)))
+		add(s.hasWorktreeDir, "worktree_dir", "?", nullString(sess.WorktreeDir))
+		add(s.hasProjectID, "project_id", "?", nullString(sess.ProjectID))
+		add(s.hasGoal, "goal", "?", goalJSONString(sess.Goal))
+		add(s.hasShare, "share", "?", shareJSONString(sess.Share))
+		add(s.hasReasoningEffort, "reasoning_effort", "?", nullString(sess.ReasoningEffort))
+		add(s.hasReasoningMode, "reasoning_mode", "?", nullString(sess.ReasoningMode))
+		add(s.hasModelPolicy, "model_policy", "?", sessionModelPolicyJSON(sess.ModelPolicy))
+		// Newly pinned sessions rank after all existing pins.
+		add(s.hasPinOrder, "pin_order", "CASE WHEN ? THEN (SELECT COALESCE(MAX(pin_order), 0) + 1 FROM sessions WHERE COALESCE(pinned, FALSE)) END", sess.Pinned)
 		result, err := s.db.ExecContext(ctx, `
 			INSERT INTO sessions (id, number, name, summary, generated_short_title, generated_long_title, title_source, title_generated_at, title_basis_msg_seq, title_skipped_at,
-				                      provider, provider_key, model, mode`+approvalModeCol+`, origin, agent, cwd`+worktreeDirCol+projectIDCol+`, created_at, updated_at, archived, pinned, parent_id, search, tools, mcp,
+				                      provider, provider_key, model, mode, origin, agent, cwd, created_at, updated_at, archived, pinned, parent_id, search, tools, mcp,
 			                      user_turns, llm_turns, tool_calls, input_tokens, cached_input_tokens, cache_write_tokens, output_tokens,
-				                      last_total_tokens, last_message_count, status, tags`+goalCol+shareCol+reasoningEffortCol+reasoningModeCol+pinOrderCol+modelPolicyCol+`)
-			VALUES (?, (SELECT COALESCE(MAX(number), 0) + 1 FROM sessions), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?`+approvalModePlaceholder+`, ?, ?, ?`+worktreeDirPlaceholder+projectIDPlaceholder+`, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?`+goalPlaceholder+sharePlaceholder+reasoningEffortPlaceholder+reasoningModePlaceholder+pinOrderPlaceholder+modelPolicyPlaceholder+`)`,
+			                      last_total_tokens, last_message_count, status, tags`+columns+`)
+			VALUES (`+baseValues+values+`)`,
 			insertArgs...)
 		if err != nil {
 			return fmt.Errorf("insert session: %w", err)
@@ -297,6 +228,7 @@ func (s *SQLiteStore) Update(ctx context.Context, sess *Session) error {
 	query := `
 		UPDATE sessions SET name = ?, summary = ?, generated_short_title = ?, generated_long_title = ?, title_source = ?, title_generated_at = ?, title_basis_msg_seq = ?` +
 		titleSkippedAtClause + `,
+		       last_context_window = CASE WHEN provider IS NOT ? OR COALESCE(provider_key, '') <> ? OR model IS NOT ? THEN 0 ELSE last_context_window END,
 		       provider = ?, provider_key = ?, model = ?` + reasoningEffortClause + reasoningModeClause + `, mode = ?` + approvalModeClause + `, origin = ?,
 		       agent = CASE WHEN COALESCE(agent, '') <> '' AND COALESCE(?, '') = '' THEN agent ELSE ? END, ` + cwdAssignment + worktreeDirClause + `,
 		       updated_at = ?, archived = ?, parent_id = ?, search = ?, tools = ?, mcp = ?,
@@ -310,6 +242,7 @@ func (s *SQLiteStore) Update(ctx context.Context, sess *Session) error {
 		args = append(args, nullTime(sess.TitleSkippedAt))
 	}
 	args = append(args,
+		sess.Provider, sess.ProviderKey, sess.Model,
 		sess.Provider, nullString(sess.ProviderKey), sess.Model,
 	)
 	if s.hasReasoningEffort {
@@ -628,30 +561,6 @@ func (s *SQLiteStore) UpdateMetrics(ctx context.Context, id string, llmTurns, to
 			       updated_at = ?
 			WHERE id = ?`,
 			llmTurns, toolCalls, inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens, time.Now(), id)
-		return err
-	})
-}
-
-// UpdateContextEstimate persists the last observed provider context estimate so
-// resumed sessions can display a realistic context meter before the next turn.
-func (s *SQLiteStore) UpdateContextEstimate(ctx context.Context, id string, lastTotalTokens, lastMessageCount int) error {
-	if !s.hasLastTotalTokens || !s.hasLastMessageCount {
-		return nil
-	}
-	if lastTotalTokens < 0 {
-		lastTotalTokens = 0
-	}
-	if lastMessageCount < 0 {
-		lastMessageCount = 0
-	}
-	return retryOnBusy(ctx, 5, func() error {
-		_, err := s.db.ExecContext(ctx, `
-			UPDATE sessions SET
-			       last_total_tokens = ?,
-			       last_message_count = ?,
-			       updated_at = ?
-			WHERE id = ?`,
-			lastTotalTokens, lastMessageCount, time.Now(), id)
 		return err
 	})
 }

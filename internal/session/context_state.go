@@ -445,6 +445,7 @@ func ResetContextEstimate(ctx context.Context, store Store, sess *Session) error
 		return err
 	}
 	sess.LastTotalTokens = 0
+	sess.LastContextWindow = 0
 	sess.LastMessageCount = 0
 	return nil
 }
