@@ -3,6 +3,7 @@ package clibin
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -50,6 +51,7 @@ type CursorBinProvider struct {
 	toolExecutorConfigured bool
 	mcpServer              *mcphttp.Server
 	mcpURL, mcpToken       string
+	mcpToolFingerprint     [sha256.Size]byte
 	cliToolBridgeState
 	tempFileTracker
 
@@ -283,17 +285,8 @@ func (p *CursorBinProvider) Stream(ctx context.Context, req core.Request) (core.
 		if err != nil {
 			return err
 		}
-		exposeBridge := false
-		if len(req.Tools) > 0 {
-			if !p.toolExecutorConfigured {
-				runtimeoutput.Warn("cursor-bin tools requested but no tool executor configured", "tool_count", len(req.Tools))
-			} else if err := p.ensureMCPServer(ctx, req.Tools, req.Debug || req.DebugRaw); err != nil {
-				return err
-			} else {
-				exposeBridge = true
-			}
-		}
-		if err := p.writeCursorMCPConfig(home, exposeBridge); err != nil {
+		exposeBridge, err := p.prepareMCPBridge(ctx, home, req)
+		if err != nil {
 			return err
 		}
 
@@ -605,20 +598,6 @@ func (p *CursorBinProvider) cursorCommandError(waitErr error, stderrTail, stdout
 	})
 }
 
-func (p *CursorBinProvider) ensureMCPServer(ctx context.Context, tools []core.ToolSpec, debug bool) error {
-	if p.mcpServer != nil {
-		return nil
-	}
-	server := mcphttp.NewServer(p.cliToolBridgeState.wrappedExecutor(p.formatToolOutput))
-	server.SetDebug(debug)
-	url, token, err := server.Start(ctx, mcpToolSpecs(tools))
-	if err != nil {
-		return fmt.Errorf("start cursor-bin MCP server: %w", err)
-	}
-	p.mcpServer, p.mcpURL, p.mcpToken = server, url, token
-	return nil
-}
-
 func (p *CursorBinProvider) writeCursorMCPConfig(home string, enabled bool) error {
 	dir := filepath.Join(home, "cwd", ".cursor")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -643,12 +622,8 @@ func (p *CursorBinProvider) writeCursorMCPConfig(home string, enabled bool) erro
 }
 
 func (p *CursorBinProvider) CleanupMCP() {
-	if p.mcpServer != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), mcpStopTimeout)
-		p.mcpServer.Stop(ctx)
-		cancel()
-		p.mcpServer, p.mcpURL, p.mcpToken = nil, "", ""
-	}
+	stopMCPBridge(p.mcpServer, "")
+	p.mcpServer, p.mcpURL, p.mcpToken, p.mcpToolFingerprint = nil, "", "", [sha256.Size]byte{}
 	p.cleanupTempFiles()
 }
 

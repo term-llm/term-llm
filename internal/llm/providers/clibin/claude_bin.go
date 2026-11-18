@@ -79,9 +79,11 @@ type ClaudeBinProvider struct {
 
 	// Persistent MCP server for multi-turn conversations.
 	// The server is kept alive across turns so Claude CLI can maintain
-	// its connection to the same URL/token throughout the session.
-	mcpServer     *mcphttp.Server
-	mcpConfigPath string
+	// its connection to the same URL/token throughout the session, and is
+	// rebuilt only when the tool surface it was started with changes.
+	mcpServer          *mcphttp.Server
+	mcpConfigPath      string
+	mcpToolFingerprint [sha256.Size]byte
 
 	// currentEvents/currentBridge route persistent MCP requests to this turn.
 	cliToolBridgeState
@@ -1351,12 +1353,9 @@ func (p *ClaudeBinProvider) buildArgs(ctx context.Context, req core.Request, sen
 		if p.toolExecutor == nil {
 			runtimeoutput.Warn("tools requested but no tool executor configured", "tool_count", len(req.Tools))
 		} else {
-			// Reuse existing MCP server if available, otherwise create new one
-			mcpConfig := p.getOrCreateMCPConfig(ctx, req.Tools, debug)
-			if mcpConfig != "" {
+			// Reuse the MCP server while the tool surface is unchanged.
+			if mcpConfig := p.getOrCreateMCPConfig(ctx, req.Tools, debug); mcpConfig != "" {
 				args = append(args, "--mcp-config", mcpConfig)
-			} else if debug {
-				runtimeoutput.Printf("[claude-bin] ERROR: MCP config creation failed\n")
 			}
 		}
 	}
@@ -1373,32 +1372,50 @@ func (p *ClaudeBinProvider) buildArgs(ctx context.Context, req core.Request, sen
 	return args, effort
 }
 
-// getOrCreateMCPConfig returns the MCP config path, reusing existing server if available.
-// This ensures the MCP server URL/token stays constant across turns in a multi-turn conversation.
+// getOrCreateMCPConfig returns the MCP config path for a turn. The running
+// server is reused while the tool surface is unchanged, so its URL/token stay
+// constant across turns. Its tool list is fixed when it starts, so a changed
+// surface (an MCP server toggled between turns, for example) starts a
+// replacement; the previous server is stopped only once the replacement is up.
+// If the replacement cannot start, the turn keeps the previous server, whose
+// tool list may still include tools removed since; the next turn retries.
 func (p *ClaudeBinProvider) getOrCreateMCPConfig(ctx context.Context, tools []core.ToolSpec, debug bool) string {
-
-	// If we already have a running MCP server, reuse its config
-	if p.mcpServer != nil && p.mcpConfigPath != "" {
+	fingerprint, err := mcpToolSurfaceFingerprint(claudeMCPToolSpecs(tools))
+	if err != nil {
+		runtimeoutput.Warn("claude-bin cannot encode the MCP tool surface; keeping the current bridge", "error", err)
+		return p.mcpConfigPath
+	}
+	if p.mcpServer != nil && p.mcpConfigPath != "" && fingerprint == p.mcpToolFingerprint {
 		if debug {
 			runtimeoutput.Printf("[claude-bin] Reusing existing MCP server at %s\n", p.mcpServer.URL())
 		}
 		return p.mcpConfigPath
 	}
 
-	// Create new MCP server
 	if debug {
 		runtimeoutput.Printf("[claude-bin] Starting HTTP MCP server for %d tools\n", len(tools))
 	}
-
+	oldServer, oldConfigPath := p.mcpServer, p.mcpConfigPath
 	configPath := p.createHTTPMCPConfig(ctx, tools, debug)
-	if configPath != "" && debug {
+	if configPath == "" {
+		if oldConfigPath != "" {
+			runtimeoutput.Warn("claude-bin MCP bridge rebuild failed; this turn keeps the previous tool list, which may include removed tools")
+		} else {
+			runtimeoutput.Warn("claude-bin MCP bridge failed to start; running this turn without tools")
+		}
+		return oldConfigPath
+	}
+	p.mcpToolFingerprint = fingerprint
+	stopMCPBridge(oldServer, oldConfigPath)
+	if debug {
 		runtimeoutput.Printf("[claude-bin] MCP config created: %s\n", configPath)
 	}
 	return configPath
 }
 
-// mcpStopTimeout bounds how long CleanupMCP will wait for the in-process MCP
-// HTTP server to drain in-flight tool calls before forcibly closing connections.
+// mcpStopTimeout bounds how long stopping the in-process MCP HTTP server
+// (CleanupMCP, or replacing it after a tool-surface change) waits for in-flight
+// tool calls to drain before forcibly closing connections.
 // Without this bound, an in-flight tool whose result channel has no remaining
 // writer (e.g. the parent stream was cancelled) deadlocks server.Shutdown
 // indefinitely, blocking process exit on SIGTERM during runit-managed restarts.
@@ -1407,21 +1424,26 @@ const mcpStopTimeout = 5 * time.Second
 // CleanupMCP stops the MCP server and removes the config file.
 // This should be called when the conversation is complete (runtime eviction
 // or server shutdown) — NOT per turn, because the MCP server is deliberately
-// kept alive across turns so Claude CLI can reuse the same URL/token.
+// kept alive across turns so Claude CLI can reuse the same URL/token; it is
+// replaced only when the tool surface changes.
 // Also removes any remaining tracked temp files as a safety net in case
 // CleanupTurn was not invoked (e.g. mid-turn abort before stream terminates).
 func (p *ClaudeBinProvider) CleanupMCP() {
-	if p.mcpServer != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), mcpStopTimeout)
-		p.mcpServer.Stop(ctx)
-		cancel()
-		p.mcpServer = nil
-	}
-	if p.mcpConfigPath != "" {
-		os.Remove(p.mcpConfigPath)
-		p.mcpConfigPath = ""
-	}
+	stopMCPBridge(p.mcpServer, p.mcpConfigPath)
+	p.mcpServer, p.mcpConfigPath = nil, ""
 	p.cleanupTempFiles()
+}
+
+// stopMCPBridge stops an MCP server and removes its config file.
+func stopMCPBridge(server *mcphttp.Server, configPath string) {
+	if server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), mcpStopTimeout)
+		server.Stop(ctx)
+		cancel()
+	}
+	if configPath != "" {
+		os.Remove(configPath)
+	}
 }
 
 // CleanupTurn removes per-turn resources (currently: tracked temp image
@@ -1433,8 +1455,9 @@ func (p *ClaudeBinProvider) CleanupTurn() {
 }
 
 // createHTTPMCPConfig starts an HTTP MCP server and creates a config file pointing to it.
-// The server and config path are stored in the provider for reuse across turns.
-// Tool execution events are routed through p.currentEvents (set by getOrCreateMCPConfig).
+// The server and config path are stored in the provider for reuse across turns,
+// only on success: on failure the provider's current server is left untouched.
+// Tool execution events are routed through p.currentEvents (set by runClaudeCommand).
 func (p *ClaudeBinProvider) createHTTPMCPConfig(ctx context.Context, tools []core.ToolSpec, debug bool) string {
 	// Convert llm.ToolSpec to mcphttp.ToolSpec
 	mcpTools := claudeMCPToolSpecs(tools)

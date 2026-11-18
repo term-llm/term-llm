@@ -3,6 +3,7 @@ package clibin
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -781,6 +783,18 @@ func messagesContainPriorAssistantTurn(messages []core.Message) bool {
 		}
 	}
 	return false
+}
+
+// mcpToolSurfaceFingerprint identifies a bridge tool surface independently of
+// tool order, so a bridge can be kept until the surface really changes.
+func mcpToolSurfaceFingerprint(specs []mcphttp.ToolSpec) ([sha256.Size]byte, error) {
+	sorted := slices.Clone(specs)
+	slices.SortStableFunc(sorted, func(a, b mcphttp.ToolSpec) int { return strings.Compare(a.Name, b.Name) })
+	encoded, err := json.Marshal(sorted)
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	return sha256.Sum256(encoded), nil
 }
 
 func mcpToolSpecs(tools []core.ToolSpec) []mcphttp.ToolSpec {
