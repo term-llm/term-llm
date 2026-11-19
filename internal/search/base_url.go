@@ -24,6 +24,8 @@ func searchBaseURL(cfg *config.Config, provider string) string {
 		return cfg.Search.Keenable.BaseURL
 	case "youcom":
 		return cfg.Search.YouCom.BaseURL
+	case "sofya":
+		return cfg.Search.Sofya.BaseURL
 	case "duckduckgo":
 		return cfg.Search.DuckDuckGo.BaseURL
 	}
@@ -81,6 +83,8 @@ func NewSearcher(cfg *config.Config) (Searcher, error) {
 	case *KeenableSearcher:
 		s.baseURL = base
 	case *YouComSearcher:
+		s.baseURL = base
+	case *SofyaSearcher:
 		s.baseURL = base
 	case *DuckDuckGoLite:
 		s.baseURL = base + "/lite/"
