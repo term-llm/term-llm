@@ -255,6 +255,8 @@ The index below follows the canonical config schema. A dash means no default or 
 | `search.youcom.api_key` | string | — | — |
 | `search.keenable.base_url` | string | — | — |
 | `search.keenable.api_key` | string | — | — |
+| `search.sofya.base_url` | string | — | — |
+| `search.sofya.api_key` | string | — | — |
 | `classify.default_provider` | string | `typesafe` | — |
 | `classify.providers.typesafe.type` | string | — | — |
 | `classify.providers.typesafe.api_key` | string | — | — |
@@ -1082,6 +1084,9 @@ search:
 
   youcom:
     api_key: ${YDC_API_KEY} # optional; keyless free tier without it
+
+  sofya:
+    api_key: ${SOFYA_API_KEY}
 
   tavily:
     api_key: ${TAVILY_API_KEY}

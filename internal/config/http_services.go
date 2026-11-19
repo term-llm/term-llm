@@ -204,7 +204,7 @@ type EmbedOllamaConfig struct {
 
 // SearchConfig configures web search providers
 type SearchConfig struct {
-	Provider      string                 `mapstructure:"provider"`       // exa_mcp (default), exa, perplexity, parallel, tavily, brave, google, youcom, keenable, duckduckgo
+	Provider      string                 `mapstructure:"provider"`       // exa_mcp (default), exa, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, duckduckgo
 	FetchProvider string                 `mapstructure:"fetch_provider"` // jina (default), exa_mcp, none
 	ForceExternal bool                   `mapstructure:"force_external"` // force external search for all providers
 	Exa           SearchExaConfig        `mapstructure:"exa"`
@@ -216,6 +216,7 @@ type SearchConfig struct {
 	Google        SearchGoogleConfig     `mapstructure:"google"`
 	YouCom        SearchYouComConfig     `mapstructure:"youcom"`
 	Keenable      SearchKeenableConfig   `mapstructure:"keenable"`
+	Sofya         SearchSofyaConfig      `mapstructure:"sofya"`
 	DuckDuckGo    SearchDuckDuckGoConfig `mapstructure:"duckduckgo"`
 	Jina          SearchJinaConfig       `mapstructure:"jina"`
 }
@@ -266,6 +267,12 @@ type SearchYouComConfig struct {
 // SearchKeenableConfig configures Keenable search. The API key is optional:
 // without one, the keyless public endpoint is used.
 type SearchKeenableConfig struct {
+	BaseURL string `mapstructure:"base_url"`
+	APIKey  string `mapstructure:"api_key"`
+}
+
+// SearchSofyaConfig configures Sofya search
+type SearchSofyaConfig struct {
 	BaseURL string `mapstructure:"base_url"`
 	APIKey  string `mapstructure:"api_key"`
 }

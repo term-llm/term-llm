@@ -428,6 +428,8 @@ var keySpecs = []KeySpec{
 	optional("search.youcom.api_key", sensitive()),
 	optional("search.keenable.base_url"),
 	optional("search.keenable.api_key", sensitive()),
+	optional("search.sofya.base_url"),
+	optional("search.sofya.api_key", sensitive()),
 
 	def("classify.default_provider", "typesafe"),
 	optional("classify.providers.typesafe.type"),

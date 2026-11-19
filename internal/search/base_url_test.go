@@ -14,7 +14,7 @@ import (
 
 func TestFactoryBaseURLRequests(t *testing.T) {
 	for _, trailing := range []string{"", "/"} {
-		for _, provider := range []string{"exa", "perplexity", "parallel", "tavily", "brave", "google", "youcom", "youcom-keyless", "keenable", "keenable-keyless", "duckduckgo"} {
+		for _, provider := range []string{"exa", "perplexity", "parallel", "tavily", "brave", "google", "youcom", "youcom-keyless", "keenable", "keenable-keyless", "sofya", "duckduckgo"} {
 			t.Run(provider+trailing, func(t *testing.T) {
 				query := "café & x=?/# +雪"
 				called := 0
@@ -98,6 +98,8 @@ func TestFactoryBaseURLRequests(t *testing.T) {
 					t.Setenv("KEENABLE_API_KEY", "")
 					cfg.Search.Provider = "keenable"
 					cfg.Search.Keenable.BaseURL = raw
+				case "sofya":
+					cfg.Search.Sofya = config.SearchSofyaConfig{APIKey: "test", BaseURL: raw}
 				case "duckduckgo":
 					cfg.Search.DuckDuckGo.BaseURL = raw
 				}
