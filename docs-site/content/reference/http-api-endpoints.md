@@ -171,6 +171,7 @@ cover invalid roots and HTTP 429. Exa MCP retains existing tests.
 | Google Custom Search | `search.google.base_url` | `https://www.googleapis.com/customsearch/v1`; query parameters appended directly |
 | You.com keyed / keyless | `search.youcom.base_url` | keyed `https://ydc-index.io/v1` + `/search`; keyless `https://api.you.com/v1` + `/agents/search` |
 | Keenable keyed / keyless | `search.keenable.base_url` | `https://api.keenable.ai/v1` + `/search` (keyed) or `/search/public` (keyless) |
+| Sofya | `search.sofya.base_url` | `https://sofya.co/v1` + `/search` |
 | DuckDuckGo Lite | `search.duckduckgo.base_url` | `https://lite.duckduckgo.com` + `/lite/` |
 | Exa MCP search / fetch | `search.exa_mcp.url` | Existing full endpoint, default `https://mcp.exa.ai/mcp`; custom endpoints do not automatically receive hosted Exa credentials. |
 | Jina Reader | `search.jina.base_url` | Changed: `https://r.jina.ai` + `/TARGET_URL`; local Reader request test. Public-target DNS/redirect preflight remains a deliberate SSRF check, not a hidden Jina API request. |

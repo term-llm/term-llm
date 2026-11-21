@@ -322,6 +322,11 @@ func (c SearchConfig) YouComKey() CredentialRef {
 	return Cred(c.YouCom.APIKey, "YDC_API_KEY")
 }
 
+// SofyaKey returns the Sofya search credential.
+func (c SearchConfig) SofyaKey() CredentialRef {
+	return Cred(c.Sofya.APIKey, "SOFYA_API_KEY")
+}
+
 // TavilyKey returns the Tavily search credential.
 func (c SearchConfig) TavilyKey() CredentialRef {
 	return Cred(c.Tavily.APIKey, "TAVILY_API_KEY")

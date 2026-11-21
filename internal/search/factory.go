@@ -109,11 +109,21 @@ func newSearcher(cfg *config.Config) (Searcher, error) {
 		}
 		return NewYouComSearcher(apiKey, nil), nil
 
+	case "sofya":
+		apiKey, err := cfg.Search.SofyaKey().Resolve()
+		if err != nil {
+			return nil, fmt.Errorf("search.sofya.api_key: %w", err)
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("sofya search requires SOFYA_API_KEY")
+		}
+		return NewSofyaSearcher(apiKey, nil), nil
+
 	case "duckduckgo":
 		return NewDuckDuckGoLite(nil), nil
 
 	default:
-		return nil, fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, duckduckgo)", provider)
+		return nil, fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, duckduckgo)", provider)
 	}
 }
 
@@ -154,10 +164,14 @@ func Available(cfg *config.Config) error {
 		if !cfg.Search.GoogleCXRef().Configured() {
 			return fmt.Errorf("google search requires GOOGLE_SEARCH_CX (Custom Search Engine ID)")
 		}
+	case "sofya":
+		if !cfg.Search.SofyaKey().Configured() {
+			return fmt.Errorf("sofya search requires SOFYA_API_KEY")
+		}
 	case "exa_mcp", "youcom", "keenable", "duckduckgo":
 		// No credentials required.
 	default:
-		return fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, duckduckgo)", provider)
+		return fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, duckduckgo)", provider)
 	}
 	return nil
 }
