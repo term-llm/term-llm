@@ -26,6 +26,8 @@ type (
 	ResponsesIncompleteError       = stream.ResponsesIncompleteError
 )
 
+var ErrDegenerateToolArguments = stream.ErrDegenerateToolArguments
+
 const (
 	RoleUser               = core.RoleUser
 	RoleDeveloper          = core.RoleDeveloper

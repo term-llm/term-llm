@@ -811,7 +811,7 @@ func (c *ResponsesClient) streamWebSocketPrepared(ctx context.Context, req Respo
 			protocolEventCount++
 			lastProtocolEvent = eventType
 			lastProtocolEventAt = time.Now()
-			if responsesWebSocketEventIsMeaningfulProgress(eventType) {
+			if responsesWebSocketEventIsMeaningfulProgress(eventType, data) {
 				meaningfulEventCount++
 				lastMeaningfulEvent = eventType
 				lastMeaningfulEventAt = lastProtocolEventAt
@@ -908,15 +908,6 @@ func (c *ResponsesClient) streamWebSocketPrepared(ctx context.Context, req Respo
 		}
 		return nil
 	}), nil
-}
-
-func responsesWebSocketEventIsMeaningfulProgress(eventType string) bool {
-	switch strings.TrimSpace(eventType) {
-	case "", "response.created", "response.queued", "response.in_progress":
-		return false
-	default:
-		return true
-	}
 }
 
 func addDebugAgeMillis(data map[string]any, key string, now, then time.Time) {

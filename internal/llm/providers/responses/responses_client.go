@@ -620,7 +620,9 @@ func (s *responsesWebSocketFallbackStream) Recv() (Event, error) {
 	}
 	event, err := s.current.Recv()
 	if err != nil {
-		if err == io.EOF || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || len(s.fallbacks) == 0 {
+		// Degenerate tool arguments are a model failure, not a transport one.
+		// Hand them straight to the retry layer, which allows a single retry.
+		if err == io.EOF || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrDegenerateToolArguments) || len(s.fallbacks) == 0 {
 			return event, err
 		}
 		if s.skipWebSocketRetriesForImmediateHTTP(err) && len(s.fallbacks) == 0 {
@@ -635,7 +637,7 @@ func (s *responsesWebSocketFallbackStream) Recv() (Event, error) {
 		if s.skipWebSocketRetriesForImmediateHTTP(event.Err) && len(s.fallbacks) == 0 {
 			return event, nil
 		}
-		if !s.emitted && len(s.fallbacks) > 0 {
+		if !s.emitted && len(s.fallbacks) > 0 && !errors.Is(event.Err, ErrDegenerateToolArguments) {
 			return s.switchToNextFallback(event.Err)
 		}
 	}

@@ -1,6 +1,15 @@
 package stream
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrDegenerateToolArguments reports a tool call whose streamed arguments
+// stopped converging, typically an endless run of whitespace between JSON
+// tokens. Such a response never finishes by itself, so the provider aborts it
+// and the retry layer gets one fresh attempt.
+var ErrDegenerateToolArguments = errors.New("model streamed degenerate tool call arguments")
 
 // StreamIncompleteError reports a streaming response that ended before the
 // protocol terminal marker arrived. This must be treated as a failed model

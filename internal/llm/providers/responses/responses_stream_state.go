@@ -6,6 +6,17 @@ import (
 	"strings"
 )
 
+const (
+	// maxToolArgumentsWhitespaceRun bounds trailing whitespace in a streamed
+	// tool call. Raw newlines and tabs are only legal between JSON tokens, so a
+	// run this long means the model is stuck rather than writing a payload.
+	maxToolArgumentsWhitespaceRun = 4 << 10
+	// maxToolArgumentsBytes is a backstop for arguments that grow without end.
+	// Providers such as the ChatGPT backend ignore max_output_tokens, so nothing
+	// else caps a runaway call short of the response timeout.
+	maxToolArgumentsBytes = 4 << 20
+)
+
 type responsesToolState struct {
 	calls map[int]*responsesToolCallState // keyed by output_index (stable across events)
 	order []int                           // order of output_index values
@@ -18,6 +29,7 @@ type responsesToolCallState struct {
 	namespace   string
 	caller      string
 	args        strings.Builder
+	wsRun       int // trailing whitespace bytes in args
 	finished    bool
 }
 
@@ -35,10 +47,35 @@ func (s *responsesToolState) StartCall(outputIndex int, callID, namespace, name 
 	s.order = append(s.order, outputIndex)
 }
 
-func (s *responsesToolState) AppendArguments(outputIndex int, args string) {
-	if state, ok := s.calls[outputIndex]; ok && !state.finished {
-		state.args.WriteString(args)
+// AppendArguments adds a streamed argument delta and reports
+// ErrDegenerateToolArguments once the call is clearly not going to converge.
+func (s *responsesToolState) AppendArguments(outputIndex int, args string) error {
+	state, ok := s.calls[outputIndex]
+	if !ok || state.finished {
+		return nil
 	}
+	state.args.WriteString(args)
+	if trimmed := strings.TrimRight(args, jsonWhitespace); trimmed == "" {
+		state.wsRun += len(args)
+	} else {
+		state.wsRun = len(args) - len(trimmed)
+	}
+	switch {
+	case state.wsRun > maxToolArgumentsWhitespaceRun:
+		return fmt.Errorf("%w: %s arguments end in %d bytes of whitespace", ErrDegenerateToolArguments, state.label(), state.wsRun)
+	case state.args.Len() > maxToolArgumentsBytes:
+		return fmt.Errorf("%w: %s arguments exceeded %d bytes", ErrDegenerateToolArguments, state.label(), maxToolArgumentsBytes)
+	}
+	return nil
+}
+
+const jsonWhitespace = " \t\r\n"
+
+func (s *responsesToolCallState) label() string {
+	if s.name == "" {
+		return "tool call"
+	}
+	return fmt.Sprintf("tool call %q", s.name)
 }
 
 func (s *responsesToolState) FinishCall(outputIndex int, callID, namespace, name, finalArgs string) {
@@ -436,4 +473,23 @@ func extractReasoningSummaryTexts(summary []responsesReasoningSummaryPart) []str
 		}
 	}
 	return texts
+}
+
+func responsesWebSocketEventIsMeaningfulProgress(eventType string, data []byte) bool {
+	switch strings.TrimSpace(eventType) {
+	case "", "response.created", "response.queued", "response.in_progress":
+		return false
+	case "response.function_call_arguments.delta":
+		// A model stuck emitting whitespace into a tool call would otherwise
+		// re-arm the idle timer forever.
+		var event struct {
+			Delta string `json:"delta"`
+		}
+		if err := json.Unmarshal(data, &event); err != nil {
+			return true
+		}
+		return strings.TrimLeft(event.Delta, jsonWhitespace) != ""
+	default:
+		return true
+	}
 }

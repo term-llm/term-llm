@@ -2292,3 +2292,132 @@ func toJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
 }
+
+// streamWhitespaceToolArguments plays a model that opens a function call and
+// then streams whitespace into its arguments until the client hangs up.
+func streamWhitespaceToolArguments(t *testing.T, interval time.Duration) *httptest.Server {
+	t.Helper()
+	upgrader := websocket.Upgrader{}
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Errorf("upgrade: %v", err)
+			return
+		}
+		defer conn.Close()
+		if _, _, err := conn.ReadMessage(); err != nil {
+			t.Errorf("read request: %v", err)
+			return
+		}
+		go func() {
+			for {
+				if _, _, err := conn.ReadMessage(); err != nil {
+					return
+				}
+			}
+		}()
+		_ = conn.WriteJSON(map[string]any{"type": "response.created", "response": map[string]any{"id": "resp_1"}})
+		_ = conn.WriteJSON(map[string]any{
+			"type":         "response.output_item.added",
+			"output_index": 0,
+			"item":         map[string]any{"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "browser_run_code_unsafe"},
+		})
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if err := conn.WriteJSON(map[string]any{"type": "response.function_call_arguments.delta", "output_index": 0, "delta": "\n"}); err != nil {
+				return
+			}
+			if interval > 0 {
+				time.Sleep(interval)
+			}
+		}
+	}))
+}
+
+func recvStreamError(t *testing.T, stream Stream) error {
+	t.Helper()
+	for {
+		event, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		switch event.Type {
+		case EventError:
+			return event.Err
+		case EventDone:
+			t.Fatal("stream completed, want an error")
+		}
+	}
+}
+
+func TestResponsesClientWebSocketAbortsWhitespaceToolArguments(t *testing.T) {
+	server := streamWhitespaceToolArguments(t, 0)
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	client := &ResponsesClient{BaseURL: server.URL, UseWebSocket: true, WebSocketIdleTimeout: time.Minute}
+	stream, err := client.Stream(ctx, ResponsesRequest{
+		Model:          "gpt-test",
+		Input:          []ResponsesInputItem{{Type: "message", Role: "user", Content: "hi"}},
+		Stream:         true,
+		ForceWebSocket: true,
+	}, false)
+	if err != nil {
+		t.Fatalf("Stream: %v", err)
+	}
+	defer stream.Close()
+
+	err = recvStreamError(t, stream)
+	if !errors.Is(err, ErrDegenerateToolArguments) {
+		t.Fatalf("error = %v, want ErrDegenerateToolArguments", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("guard did not trip before the test deadline")
+	}
+}
+
+func TestResponsesClientWebSocketWhitespaceArgumentsDoNotResetIdleTimer(t *testing.T) {
+	withResponsesWebSocketBaseBackoff(t, time.Millisecond)
+	// Slow enough that the whitespace guard never trips; only the idle timer
+	// can end this response.
+	server := streamWhitespaceToolArguments(t, 10*time.Millisecond)
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	client := &ResponsesClient{BaseURL: server.URL, UseWebSocket: true, WebSocketIdleTimeout: 100 * time.Millisecond}
+	stream, err := client.Stream(ctx, ResponsesRequest{
+		Model:          "gpt-test",
+		Input:          []ResponsesInputItem{{Type: "message", Role: "user", Content: "hi"}},
+		Stream:         true,
+		ForceWebSocket: true,
+	}, false)
+	if err != nil {
+		t.Fatalf("Stream: %v", err)
+	}
+	defer stream.Close()
+
+	// The idle timeout surfaces as an incomplete stream because the open tool
+	// call is unfinished. What matters is that it ends long before the server
+	// stops sending whitespace.
+	err = recvStreamError(t, stream)
+	var incomplete *StreamIncompleteError
+	if !errors.As(err, &incomplete) {
+		t.Fatalf("error = %v, want StreamIncompleteError from the idle timeout", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("whitespace deltas kept the response alive until the test deadline")
+	}
+}
+
+func TestResponsesToolStateAllowsPrettyPrintedArguments(t *testing.T) {
+	state := newResponsesToolState()
+	state.StartCall(0, "call_1", "", "write")
+	indent := strings.Repeat(" ", 200)
+	for i := 0; i < 100; i++ {
+		if err := state.AppendArguments(0, "\n"+indent+`"k":`+fmt.Sprint(i)+","); err != nil {
+			t.Fatalf("AppendArguments: %v", err)
+		}
+	}
+}

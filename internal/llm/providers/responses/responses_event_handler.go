@@ -350,8 +350,7 @@ func (h *responsesStreamEventHandler) handleFunctionArgumentsDelta(ctx responses
 	if err := ctx.decode(&event); err != nil {
 		return err
 	}
-	h.toolState.AppendArguments(event.OutputIndex, event.Delta)
-	return nil
+	return h.toolState.AppendArguments(event.OutputIndex, event.Delta)
 }
 
 func (h *responsesStreamEventHandler) handleOutputItemDone(ctx responsesEventContext) error {

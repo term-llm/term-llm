@@ -313,6 +313,7 @@ func retryCall[T any](ctx context.Context, config RetryConfig, run func() (T, er
 	started := time.Now()
 	var zero T
 	var lastErr error
+	retriedDegenerate := false
 
 	for attempt := 1; ; attempt++ {
 		if config.MaxAttempts > 0 && attempt > config.MaxAttempts {
@@ -330,6 +331,14 @@ func retryCall[T any](ctx context.Context, config RetryConfig, run func() (T, er
 		}
 		if !isRetryable(err) {
 			return zero, err
+		}
+		// A model that degenerated inside a tool call gets one fresh attempt;
+		// if it happens again, retrying is unlikely to help.
+		if errors.Is(err, stream.ErrDegenerateToolArguments) {
+			if retriedDegenerate {
+				return zero, err
+			}
+			retriedDegenerate = true
 		}
 		lastErr = err
 
@@ -498,6 +507,10 @@ func isRetryable(err error) bool {
 	// Attempt-level deadlines (including dial and response-header timeouts)
 	// are retryable while the caller context is still live.
 	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	if errors.Is(err, stream.ErrDegenerateToolArguments) {
 		return true
 	}
 

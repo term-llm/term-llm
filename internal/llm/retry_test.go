@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/term-llm/term-llm/internal/llm/core"
+	"github.com/term-llm/term-llm/internal/llm/core/stream"
 	"github.com/term-llm/term-llm/internal/llm/providers/opencompat"
 	rp "github.com/term-llm/term-llm/internal/llm/providers/responsesproviders"
 )
@@ -920,5 +921,41 @@ func TestRetryCall_DeadlineErrors(t *testing.T) {
 				t.Fatalf("expected cancellation, got %v", err)
 			}
 		})
+	}
+}
+
+func TestRetryProvider_RetriesDegenerateToolArgumentsOnce(t *testing.T) {
+	degenerate := fmt.Errorf("%w: tool call arguments end in 5000 bytes of whitespace", stream.ErrDegenerateToolArguments)
+	inner := &retryFailNTimesProvider{failures: 10, err: degenerate}
+	provider := WrapWithRetry(inner, RetryConfig{
+		MaxElapsedTime: 2 * time.Second,
+		BaseBackoff:    time.Millisecond,
+		MaxBackoff:     time.Millisecond,
+	})
+
+	s, err := provider.Stream(context.Background(), core.Request{})
+	if err != nil {
+		t.Fatalf("Stream returned error: %v", err)
+	}
+	defer s.Close()
+
+	var finalErr error
+	for {
+		event, err := s.Recv()
+		if err != nil {
+			if err != io.EOF {
+				finalErr = err
+			}
+			break
+		}
+		if event.Type == core.EventError {
+			finalErr = event.Err
+		}
+	}
+	if !errors.Is(finalErr, stream.ErrDegenerateToolArguments) {
+		t.Fatalf("final error = %v, want ErrDegenerateToolArguments", finalErr)
+	}
+	if inner.attempts != 2 {
+		t.Fatalf("attempts = %d, want 2 (one retry)", inner.attempts)
 	}
 }
