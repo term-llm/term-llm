@@ -431,6 +431,8 @@ var keySpecs = []KeySpec{
 	optional("search.keenable.api_key", sensitive()),
 	optional("search.sofya.base_url"),
 	optional("search.sofya.api_key", sensitive()),
+	optional("search.webz.base_url"),
+	optional("search.webz.api_key", sensitive()),
 
 	def("classify.default_provider", "typesafe"),
 	optional("classify.providers.typesafe.type"),

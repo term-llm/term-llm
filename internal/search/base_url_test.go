@@ -14,7 +14,7 @@ import (
 
 func TestFactoryBaseURLRequests(t *testing.T) {
 	for _, trailing := range []string{"", "/"} {
-		for _, provider := range []string{"exa", "perplexity", "parallel", "tavily", "brave", "google", "youcom", "youcom-keyless", "keenable", "keenable-keyless", "sofya", "duckduckgo"} {
+		for _, provider := range []string{"exa", "perplexity", "parallel", "tavily", "brave", "google", "youcom", "youcom-keyless", "keenable", "keenable-keyless", "sofya", "webz", "duckduckgo"} {
 			t.Run(provider+trailing, func(t *testing.T) {
 				query := "café & x=?/# +雪"
 				called := 0
@@ -32,6 +32,8 @@ func TestFactoryBaseURLRequests(t *testing.T) {
 						suffix = "/agents/search"
 					case "duckduckgo":
 						suffix = "/lite/"
+					case "webz":
+						suffix = "/api/news/context"
 					}
 					if r.URL.Path != "/gateway/nested/v1"+suffix {
 						t.Errorf("path=%s", r.URL.Path)
@@ -100,6 +102,8 @@ func TestFactoryBaseURLRequests(t *testing.T) {
 					cfg.Search.Keenable.BaseURL = raw
 				case "sofya":
 					cfg.Search.Sofya = config.SearchSofyaConfig{APIKey: "test", BaseURL: raw}
+				case "webz":
+					cfg.Search.Webz = config.SearchWebzConfig{APIKey: "test", BaseURL: raw}
 				case "duckduckgo":
 					cfg.Search.DuckDuckGo.BaseURL = raw
 				}

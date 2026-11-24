@@ -293,6 +293,13 @@ func TestProviderModelConfigCompletionRespectsAllowedModels(t *testing.T) {
 	}
 }
 
+func TestSearchProviderConfigValueCompletionsIncludeWebz(t *testing.T) {
+	got := configValueCompletions("search.provider", "web")
+	if !slices.Equal(got, []string{"webz"}) {
+		t.Fatalf("configValueCompletions(search.provider, web) = %v, want [webz]", got)
+	}
+}
+
 func TestSearchProviderConfigValueCompletionsIncludeParallel(t *testing.T) {
 	got := configValueCompletions("search.provider", "par")
 	if !reflect.DeepEqual(got, []string{"parallel"}) {

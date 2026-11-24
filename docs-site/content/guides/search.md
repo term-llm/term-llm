@@ -100,6 +100,9 @@ search:
   sofya:
     api_key: ${SOFYA_API_KEY}
 
+  webz:
+    api_key: ${WEBZ_API_TOKEN}
+
   brave:
     api_key: ${BRAVE_API_KEY}
 
@@ -123,6 +126,7 @@ Available external providers:
 | You.com | optional `YDC_API_KEY` | works with no key on the free keyless tier (about 100 searches a day); a [key](https://you.com/platform?utm_source=samsaffron-term-llm&utm_medium=oss_integration&utm_campaign=2026-11-oss-integrations&utm_content=docs) switches to the Web Search API for higher limits (`provider: youcom`) |
 | Keenable | optional `KEENABLE_API_KEY` | works with no key (1,000 requests per hour per IP, see [rate limits](https://docs.keenable.ai/rate-limits)); a key removes the hourly cap (`provider: keenable`) |
 | Sofya | `SOFYA_API_KEY` | sends queries to Sofya; each successful snippet search costs one credit. Get a key at [sofya.co](https://sofya.co/dashboard) (`provider: sofya`). |
+| Webz.io News Search | `WEBZ_API_TOKEN` | news from the last 30 days. `POST https://api.webz.io/api/news/context` with the query and `k`. The API has no `days` field (`provider: webz`). |
 
 To use Keenable without an API key, set `search.provider: keenable`.
 

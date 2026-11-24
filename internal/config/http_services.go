@@ -204,7 +204,7 @@ type EmbedOllamaConfig struct {
 
 // SearchConfig configures web search providers
 type SearchConfig struct {
-	Provider      string                 `mapstructure:"provider"`       // exa_mcp (default), exa, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, duckduckgo
+	Provider      string                 `mapstructure:"provider"`       // exa_mcp (default), exa, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, webz, duckduckgo
 	FetchProvider string                 `mapstructure:"fetch_provider"` // jina (default), exa_mcp, none
 	ForceExternal bool                   `mapstructure:"force_external"` // force external search for all providers
 	Exa           SearchExaConfig        `mapstructure:"exa"`
@@ -217,6 +217,7 @@ type SearchConfig struct {
 	YouCom        SearchYouComConfig     `mapstructure:"youcom"`
 	Keenable      SearchKeenableConfig   `mapstructure:"keenable"`
 	Sofya         SearchSofyaConfig      `mapstructure:"sofya"`
+	Webz          SearchWebzConfig       `mapstructure:"webz"`
 	DuckDuckGo    SearchDuckDuckGoConfig `mapstructure:"duckduckgo"`
 	Jina          SearchJinaConfig       `mapstructure:"jina"`
 
@@ -277,6 +278,12 @@ type SearchKeenableConfig struct {
 
 // SearchSofyaConfig configures Sofya search
 type SearchSofyaConfig struct {
+	BaseURL string `mapstructure:"base_url"`
+	APIKey  string `mapstructure:"api_key"`
+}
+
+// SearchWebzConfig configures Webz.io News Search. The token is WEBZ_API_TOKEN.
+type SearchWebzConfig struct {
 	BaseURL string `mapstructure:"base_url"`
 	APIKey  string `mapstructure:"api_key"`
 }
