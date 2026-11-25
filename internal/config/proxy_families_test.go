@@ -169,6 +169,42 @@ func TestProxySofyaUsesScopedRouteOrStaysUnavailable(t *testing.T) {
 	}
 }
 
+func TestProxyWebzUsesScopedRouteOrStaysUnavailable(t *testing.T) {
+	t.Setenv("WEBZ_API_TOKEN", "local-env-key")
+	const local = "search:\n  provider: webz\n  webz:\n    base_url: https://local.example.test\n"
+	const configuredKey = "    api_key: local-config-key\n"
+	granted := proxyDiscoveryPayload{Providers: []proxyDiscoveredProvider{
+		familyProvider("webz", "search", familyRoute("webz-route", "webz", "/webz-granted/")),
+	}}
+	for _, tc := range []struct {
+		name, selection, extra, path, key string
+		payload                           proxyDiscoveryPayload
+	}{
+		{name: "proxy-all missing route with env key", path: "/_proxy/client/unavailable/webz", key: familyProxyToken},
+		{name: "proxy-all missing route with configured key", extra: configuredKey, path: "/_proxy/client/unavailable/webz", key: familyProxyToken},
+		{name: "allowlist missing route", selection: "  providers: [webz]\n", path: "/_proxy/client/unavailable/webz", key: familyProxyToken},
+		{name: "granted route", extra: configuredKey, path: "/webz-granted", key: familyProxyToken, payload: granted},
+		{name: "direct opt-out", selection: "  direct: [webz]\n", key: "local-env-key", payload: granted},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, root := loadFamilyProxy(t, tc.payload, tc.selection, local+tc.extra)
+			wantRoot := "https://local.example.test"
+			if tc.path != "" {
+				wantRoot = root + tc.path
+			}
+			if cfg.Search.Provider != "webz" || cfg.Search.Webz.BaseURL != wantRoot {
+				t.Fatalf("wrong Webz selector or root: %q, %q", cfg.Search.Provider, cfg.Search.Webz.BaseURL)
+			}
+			if key, err := cfg.Search.WebzKey().Resolve(); err != nil || key != tc.key {
+				t.Fatalf("wrong Webz credential (err=%v)", err)
+			}
+			if binding, ok := proxyclient.Lookup(wantRoot + "/api/news/context"); ok != (tc.path != "") || ok && (binding.Root != wantRoot || binding.Token != familyProxyToken) {
+				t.Fatal("wrong Webz transport binding")
+			}
+		})
+	}
+}
+
 func TestProxyGrokCompanionBindsUnderOwnBuiltin(t *testing.T) {
 	payload := proxyDiscoveryPayload{Providers: []proxyDiscoveredProvider{familyProvider("grok", "inference",
 		familyRoute("grok", "grok", "/groky/"), familyRoute("grok-bin", "grok-bin", "/grokcli/"))}}

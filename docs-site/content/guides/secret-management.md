@@ -54,7 +54,7 @@ The following credential and endpoint settings in `config.yaml` accept these for
 | `music.<provider>.api_key` | venice, elevenlabs |
 | `transcription.<provider>.api_key` | venice, elevenlabs |
 | `embed.<provider>.api_key`, `embed.ollama.base_url` | openai, gemini, jina, voyage |
-| `search.<provider>.api_key`, `search.google.cx`, `search.exa_mcp.url` | exa, exa_mcp, perplexity, parallel, tavily, brave, google |
+| `search.<provider>.api_key`, `search.google.cx`, `search.exa_mcp.url` | exa, exa_mcp, perplexity, parallel, tavily, brave, google, webz (`WEBZ_API_TOKEN`) |
 | `serve.telegram.token` | |
 | `serve.web_push.vapid_public_key`, `vapid_private_key` | |
 

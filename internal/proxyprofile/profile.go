@@ -218,6 +218,12 @@ func All() []Profile {
 			Slots: map[string]string{"search": "sofya"}, Allow: []string{"POST =/search"},
 			Bindings: []Binding{{"search.sofya.base_url", "search.sofya.api_key"}},
 		},
+		{
+			ID: "webz", Family: "search", Label: "Webz.io News Search", Upstream: "https://api.webz.io",
+			Header: "Authorization", Prefix: "Bearer ", Billing: "pay_as_you_go",
+			Slots: map[string]string{"search": "webz"}, Allow: []string{"POST =/api/news/context"},
+			Bindings: []Binding{{"search.webz.base_url", "search.webz.api_key"}},
+		},
 	}
 }
 

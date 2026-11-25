@@ -17,6 +17,7 @@ func TestDelegatedSearchDoesNotFollowRedirects(t *testing.T) {
 		{"brave", "/search/web/search", "X-Subscription-Token", ""},
 		{"exa_mcp", "/search/mcp", "X-API-Key", ""},
 		{"sofya", "/search/search", "Authorization", "Bearer "},
+		{"webz", "/search/api/news/context", "Authorization", "Bearer "},
 	} {
 		t.Run(tc.provider, func(t *testing.T) {
 			var first atomic.Int32
@@ -42,6 +43,7 @@ func TestDelegatedSearchDoesNotFollowRedirects(t *testing.T) {
 				Brave:    config.SearchBraveConfig{APIKey: token, BaseURL: server.URL + "/search"},
 				ExaMCP:   config.SearchExaMCPConfig{URL: server.URL + "/search/mcp", APIKey: token},
 				Sofya:    config.SearchSofyaConfig{APIKey: token, BaseURL: server.URL + "/search"},
+				Webz:     config.SearchWebzConfig{APIKey: token, BaseURL: server.URL + "/search"},
 			}}
 			backend, err := NewSearcher(cfg)
 			if err != nil {

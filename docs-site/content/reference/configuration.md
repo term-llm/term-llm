@@ -258,6 +258,8 @@ The index below follows the canonical config schema. A dash means no default or 
 | `search.keenable.api_key` | string | — | — |
 | `search.sofya.base_url` | string | — | — |
 | `search.sofya.api_key` | string | — | — |
+| `search.webz.base_url` | string | — | — |
+| `search.webz.api_key` | string | — | — |
 | `classify.default_provider` | string | `typesafe` | — |
 | `classify.providers.typesafe.type` | string | — | — |
 | `classify.providers.typesafe.api_key` | string | — | — |
@@ -1089,6 +1091,9 @@ search:
   sofya:
     api_key: ${SOFYA_API_KEY}
 
+  webz:
+    api_key: ${WEBZ_API_TOKEN}
+
   tavily:
     api_key: ${TAVILY_API_KEY}
 
@@ -1102,7 +1107,7 @@ search:
 
 The built-in defaults are `provider: exa_mcp` and `fetch_provider: jina`: external search uses Exa's remote MCP server, while `read_url` uses Jina Reader. Set `fetch_provider: exa_mcp` to fetch pages through Exa MCP as well, or `fetch_provider: none` to omit the external `read_url` tool.
 
-When [bound through a credential proxy](/guides/credential-proxy/#search-and-fetch-presets), Exa REST, Brave, Tavily, Perplexity, Parallel, You.com and Keenable use the discovered route and client token for `search.<provider>.base_url` and `search.<provider>.api_key`. Exa MCP uses `search.exa_mcp.url` (the full `/mcp` endpoint) and `search.exa_mcp.api_key`. Jina Reader uses `search.jina.base_url` and sends the scoped token on the Reader request; it has no separate search API-key setting. List `exa` to select both Exa routes and `jina` to select both Jina routes. Explicit `search.provider` and `search.fetch_provider` values override [proxy defaults](/guides/credential-proxy/#client-defaults).
+When [bound through a credential proxy](/guides/credential-proxy/#search-and-fetch-presets), Exa REST, Brave, Tavily, Perplexity, Parallel, You.com, Keenable and Webz.io News Search use the discovered route and client token for `search.<provider>.base_url` and `search.<provider>.api_key`. Exa MCP uses `search.exa_mcp.url` (the full `/mcp` endpoint) and `search.exa_mcp.api_key`. Jina Reader uses `search.jina.base_url` and sends the scoped token on the Reader request; it has no separate search API-key setting. List `exa` to select both Exa routes and `jina` to select both Jina routes. Explicit `search.provider` and `search.fetch_provider` values override [proxy defaults](/guides/credential-proxy/#client-defaults).
 
 See the [Search guide](/guides/search/) for detailed search configuration.
 

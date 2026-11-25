@@ -550,6 +550,7 @@ existing embedding grants do not cover Reader.
 | `youcom` | `youcom` | `https://ydc-index.io/v1` | `X-API-Key` | search: `youcom` | `POST /search` |
 | `keenable` | `keenable` | `https://api.keenable.ai/v1` | `X-API-Key` | search: `keenable` | `POST /search` |
 | `sofya` | `sofya` | `https://sofya.co/v1` | `Authorization: Bearer` | search: `sofya` | `POST =/search` |
+| `webz` | `webz` | `https://api.webz.io` | `Authorization: Bearer` | search: `webz` | `POST =/api/news/context` |
 | `jina` | `jina` | `https://api.jina.ai/v1` | `Authorization: Bearer` | embed: `jina` | Unrestricted by `allow` |
 | `jina` | `jina-reader` | `https://r.jina.ai` | `Authorization: Bearer` | fetch: `jina` | `GET /*` |
 

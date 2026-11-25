@@ -33,7 +33,7 @@ func TestAuthenticatedSearchRefusesRedirects(t *testing.T) {
 	}))
 	defer source.Close()
 
-	for _, provider := range []string{"brave", "exa", "exa_mcp", "google", "keenable", "parallel", "perplexity", "sofya", "tavily", "youcom"} {
+	for _, provider := range []string{"brave", "exa", "exa_mcp", "google", "keenable", "parallel", "perplexity", "sofya", "tavily", "webz", "youcom"} {
 		t.Run(provider, func(t *testing.T) {
 			cfg := &config.Config{Search: config.SearchConfig{
 				Provider:   provider,
@@ -46,6 +46,7 @@ func TestAuthenticatedSearchRefusesRedirects(t *testing.T) {
 				Perplexity: config.SearchPerplexityConfig{APIKey: key, BaseURL: source.URL},
 				Sofya:      config.SearchSofyaConfig{APIKey: key, BaseURL: source.URL},
 				Tavily:     config.SearchTavilyConfig{APIKey: key, BaseURL: source.URL},
+				Webz:       config.SearchWebzConfig{APIKey: key, BaseURL: source.URL},
 				YouCom:     config.SearchYouComConfig{APIKey: key, BaseURL: source.URL},
 			}}
 			backend, err := NewSearcher(cfg)

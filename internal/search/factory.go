@@ -119,11 +119,21 @@ func newSearcher(cfg *config.Config) (Searcher, error) {
 		}
 		return NewSofyaSearcher(apiKey, nil), nil
 
+	case "webz":
+		apiKey, err := cfg.Search.WebzKey().Resolve()
+		if err != nil {
+			return nil, fmt.Errorf("search.webz.api_key: %w", err)
+		}
+		if apiKey == "" {
+			return nil, fmt.Errorf("webz search requires WEBZ_API_TOKEN")
+		}
+		return NewWebzSearcher(apiKey, nil), nil
+
 	case "duckduckgo":
 		return NewDuckDuckGoLite(nil), nil
 
 	default:
-		return nil, fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, duckduckgo)", provider)
+		return nil, fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, webz, duckduckgo)", provider)
 	}
 }
 
@@ -168,10 +178,14 @@ func Available(cfg *config.Config) error {
 		if !cfg.Search.SofyaKey().Configured() {
 			return fmt.Errorf("sofya search requires SOFYA_API_KEY")
 		}
+	case "webz":
+		if !cfg.Search.WebzKey().Configured() {
+			return fmt.Errorf("webz search requires WEBZ_API_TOKEN")
+		}
 	case "exa_mcp", "youcom", "keenable", "duckduckgo":
 		// No credentials required.
 	default:
-		return fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, duckduckgo)", provider)
+		return fmt.Errorf("unknown search provider: %s (valid: exa, exa_mcp, perplexity, parallel, tavily, brave, google, youcom, keenable, sofya, webz, duckduckgo)", provider)
 	}
 	return nil
 }

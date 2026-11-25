@@ -120,6 +120,9 @@ export YDC_API_KEY=your-key
 
 # For Sofya search (used by search.provider: sofya)
 export SOFYA_API_KEY=your-key
+
+# For Webz.io News Search (used by search.provider: webz)
+export WEBZ_API_TOKEN=your-key
 ```
 
 OpenAI API-key installs default to `gpt-6.1-sol`, with `gpt-6-luna` as the lightweight control-plane model:

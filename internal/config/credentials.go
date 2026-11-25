@@ -327,6 +327,11 @@ func (c SearchConfig) SofyaKey() CredentialRef {
 	return Cred(c.Sofya.APIKey, "SOFYA_API_KEY")
 }
 
+// WebzKey returns the Webz.io News Search credential.
+func (c SearchConfig) WebzKey() CredentialRef {
+	return Cred(c.Webz.APIKey, "WEBZ_API_TOKEN")
+}
+
 // TavilyKey returns the Tavily search credential.
 func (c SearchConfig) TavilyKey() CredentialRef {
 	return Cred(c.Tavily.APIKey, "TAVILY_API_KEY")
