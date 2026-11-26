@@ -19,28 +19,29 @@ import (
 type ProviderType = providerspec.Type
 
 const (
-	ProviderTypeAnthropic    = providerspec.TypeAnthropic
-	ProviderTypeOpenAI       = providerspec.TypeOpenAI
-	ProviderTypeChatGPT      = providerspec.TypeChatGPT
-	ProviderTypeGrok         = providerspec.TypeGrok
-	ProviderTypeCopilot      = providerspec.TypeCopilot
-	ProviderTypeGemini       = providerspec.TypeGemini
-	ProviderTypeOpenRouter   = providerspec.TypeOpenRouter
-	ProviderTypeZen          = providerspec.TypeZen
-	ProviderTypeOpenCodeGo   = providerspec.TypeOpenCodeGo
-	ProviderTypeClaudeBin    = providerspec.TypeClaudeBin
-	ProviderTypeGrokBin      = providerspec.TypeGrokBin
-	ProviderTypeCursorBin    = providerspec.TypeCursorBin
-	ProviderTypeAgyBin       = providerspec.TypeAgyBin
-	ProviderTypeVibeBin      = providerspec.TypeVibeBin
-	ProviderTypeOpenAICompat = providerspec.TypeOpenAICompat
-	ProviderTypeVLLM         = providerspec.TypeVLLM
-	ProviderTypeXAI          = providerspec.TypeXAI
-	ProviderTypeVenice       = providerspec.TypeVenice
-	ProviderTypeNearAI       = providerspec.TypeNearAI
-	ProviderTypeSambaNova    = providerspec.TypeSambaNova
-	ProviderTypeBedrock      = providerspec.TypeBedrock
-	ProviderTypeOllama       = providerspec.TypeOllama
+	ProviderTypeAnthropic     = providerspec.TypeAnthropic
+	ProviderTypeOpenAI        = providerspec.TypeOpenAI
+	ProviderTypeChatGPT       = providerspec.TypeChatGPT
+	ProviderTypeGrok          = providerspec.TypeGrok
+	ProviderTypeCopilot       = providerspec.TypeCopilot
+	ProviderTypeGemini        = providerspec.TypeGemini
+	ProviderTypeOpenRouter    = providerspec.TypeOpenRouter
+	ProviderTypeZen           = providerspec.TypeZen
+	ProviderTypeOpenCodeGo    = providerspec.TypeOpenCodeGo
+	ProviderTypeClaudeBin     = providerspec.TypeClaudeBin
+	ProviderTypeGrokBin       = providerspec.TypeGrokBin
+	ProviderTypeCursorBin     = providerspec.TypeCursorBin
+	ProviderTypeAgyBin        = providerspec.TypeAgyBin
+	ProviderTypeVibeBin       = providerspec.TypeVibeBin
+	ProviderTypeOpenAICompat  = providerspec.TypeOpenAICompat
+	ProviderTypeVLLM          = providerspec.TypeVLLM
+	ProviderTypeXAI           = providerspec.TypeXAI
+	ProviderTypeVenice        = providerspec.TypeVenice
+	ProviderTypeNearAI        = providerspec.TypeNearAI
+	ProviderTypeSambaNova     = providerspec.TypeSambaNova
+	ProviderTypeTrustedRouter = providerspec.TypeTrustedRouter
+	ProviderTypeBedrock       = providerspec.TypeBedrock
+	ProviderTypeOllama        = providerspec.TypeOllama
 )
 
 // InferProviderType returns the provider type for a given provider name.

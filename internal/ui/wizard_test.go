@@ -143,7 +143,7 @@ func TestHeadlessSetupRequiresConfiguredProvider(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", home)
 	t.Setenv("PATH", "")
-	for _, key := range []string{"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "VENICE_API_KEY", "NEARAI_API_KEY", "SAMBANOVA_API_KEY", "OPENROUTER_API_KEY", "ZEN_API_KEY", "OPENCODE_API_KEY"} {
+	for _, key := range []string{"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "VENICE_API_KEY", "NEARAI_API_KEY", "SAMBANOVA_API_KEY", "OBSCURIFY_API_KEY", "TRUSTEDROUTER_API_KEY", "OPENROUTER_API_KEY", "ZEN_API_KEY", "OPENCODE_API_KEY"} {
 		t.Setenv(key, "")
 	}
 	if _, err := RunHeadlessSetup(); err == nil {

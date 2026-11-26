@@ -32,6 +32,8 @@ func NewCompatToolState() *CompatToolState { return newCompatToolState() }
 
 func OpenRouterCachedInputLimit(model string) int { return openRouterCachedInputLimit(model) }
 
+func TrustedRouterCachedInputLimit(model string) int { return trustedRouterCachedInputLimit(model) }
+
 func VeniceCachedInputLimit(model string) int { return veniceCachedInputLimit(model) }
 
 // BaseURL returns the normalized base URL requests are issued against.

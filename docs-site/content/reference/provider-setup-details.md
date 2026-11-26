@@ -31,6 +31,7 @@ Defaults and setup hints below come from the provider registry; credentials, pro
 | `nearai` | set `NEARAI_API_KEY` | `zai-org/GLM-5.1-FP8` | `Qwen/Qwen3.6-35B-A3B-FP8` |
 | `sambanova` | set `SAMBANOVA_API_KEY` | `gpt-oss-120b` | `Meta-Llama-3.3-70B-Instruct` |
 | `obscurify` | set `OBSCURIFY_API_KEY` | `z-ai/glm-5.3` | `deepseek/deepseek-v4-flash` |
+| `trustedrouter` | set `TRUSTEDROUTER_API_KEY` | `trustedrouter/auto` | `trustedrouter/fast` |
 | `zen` | set `ZEN_API_KEY` | `deepseek-v4-flash` | `deepseek-v4-flash` |
 | `opencode-go` | set `OPENCODE_API_KEY` | `glm-5.2` | `deepseek-v4-flash` |
 | `copilot` | run term-llm auth login copilot | `gpt-4.1` | `gpt-4.1` |
@@ -96,6 +97,9 @@ export SAMBANOVA_API_KEY=your-key
 
 # For Obscurify.ai
 export OBSCURIFY_API_KEY=your-key
+
+# For TrustedRouter
+export TRUSTEDROUTER_API_KEY=your-key
 
 # For OpenRouter
 export OPENROUTER_API_KEY=your-key
@@ -312,6 +316,29 @@ term-llm models --provider obscurify
 
 `term-llm models --provider obscurify` reads the public `/v1/models` listing, which includes context windows and per-token prices.
 
+### TrustedRouter
+
+[TrustedRouter](https://trustedrouter.com) is an OpenAI-compatible multi-model gateway running inside verifiable Google Confidential Space TEEs with zero-data-retention (`zdr`) and end-to-end confidential (`e2e`) routing presets. Set `TRUSTEDROUTER_API_KEY` or put `api_key` under `providers.trustedrouter`.
+
+```yaml
+# In ~/.config/term-llm/config.yaml
+default_provider: trustedrouter
+
+providers:
+  trustedrouter:
+    model: trustedrouter/auto
+    fast_model: trustedrouter/fast
+```
+
+```bash
+term-llm ask --provider trustedrouter "explain this stack trace"
+term-llm ask --provider trustedrouter:trustedrouter/zdr "review this diff"
+term-llm ask --provider trustedrouter:trustedrouter/e2e "summarize confidential notes"
+term-llm models --provider trustedrouter
+```
+
+`term-llm models --provider trustedrouter` queries the public `/v1/models` catalog (no key required) and returns chat-capable upstream models alongside routing presets (`trustedrouter/auto`, `trustedrouter/zdr`, `trustedrouter/e2e`, `trustedrouter/fast`, `trustedrouter/cheap`, `trustedrouter/free`, and `nyte/*` compatibility aliases) with context windows and per-token prices.
+
 ### Option 8: Use OpenRouter
 
 For the default free router, follow [Option 1](#option-1-try-it-free-with-openrouter). To use another model, list the catalog with `term-llm models --provider openrouter` and select its ID with `--provider openrouter:MODEL_ID`. Other models may incur charges.
@@ -335,7 +362,8 @@ term-llm models --provider anthropic  # List Anthropic models
 term-llm models --provider openrouter # List OpenRouter models
 term-llm models --provider nearai     # List NEAR AI Cloud models
 term-llm models --provider sambanova  # List SambaNova models
-term-llm models --provider obscurify  # List Obscurify.ai models
+term-llm models --provider obscurify     # List Obscurify.ai models
+term-llm models --provider trustedrouter # List TrustedRouter models
 term-llm models --provider ollama     # List local Ollama models
 term-llm models --provider lmstudio   # List local LM Studio models
 term-llm models --json                # Output as JSON

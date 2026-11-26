@@ -89,6 +89,7 @@ func All() []Profile {
 		{ID: "nearai", Family: "inference", Label: "NEAR AI", Provider: providerspec.TypeNearAI, Upstream: "https://cloud-api.near.ai/v1", Header: "Authorization", Prefix: "Bearer ", Billing: "pay_as_you_go"},
 		{ID: "sambanova", Family: "inference", Label: "SambaNova", Provider: providerspec.TypeSambaNova, Upstream: "https://api.sambanova.ai/v1", Header: "Authorization", Prefix: "Bearer ", Billing: "pay_as_you_go"},
 		{ID: "obscurify", Family: "inference", Label: "Obscurify", Provider: providerspec.TypeObscurify, Upstream: "https://obscurify.ai/v1", Header: "Authorization", Prefix: "Bearer ", Billing: "pay_as_you_go"},
+		{ID: "trustedrouter", Family: "inference", Label: "TrustedRouter", Provider: providerspec.TypeTrustedRouter, Upstream: "https://api.trustedrouter.com/v1", Header: "Authorization", Prefix: "Bearer ", Billing: "pay_as_you_go"},
 		{ID: "zen", Family: "inference", Label: "OpenCode Zen", Provider: providerspec.TypeZen, Upstream: "https://opencode.ai/zen/v1", Header: "Authorization", Prefix: "Bearer ", Billing: "pay_as_you_go"},
 		{ID: "opencode-go", Family: "inference", Label: "OpenCode Go", Provider: providerspec.TypeOpenCodeGo, Upstream: "https://opencode.ai/zen/go/v1", Header: "Authorization", Prefix: "Bearer ", Billing: "plan"},
 		{ID: "opencode-go-messages", Family: "inference", Label: "OpenCode Go · Messages", Upstream: "https://opencode.ai/zen/go", Header: "x-api-key", Billing: "plan"},

@@ -489,6 +489,10 @@ providers:
     model: z-ai/glm-5.3
     fast_model: deepseek/deepseek-v4-flash
 
+  trustedrouter:
+    model: trustedrouter/auto
+    fast_model: trustedrouter/fast
+
   claude-bin:
     model: opus
     env:

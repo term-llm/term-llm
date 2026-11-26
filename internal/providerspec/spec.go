@@ -12,29 +12,30 @@ import (
 type Type string
 
 const (
-	TypeAnthropic    Type = "anthropic"
-	TypeOpenAI       Type = "openai"
-	TypeChatGPT      Type = "chatgpt"
-	TypeGrok         Type = "grok"
-	TypeCopilot      Type = "copilot"
-	TypeGemini       Type = "gemini"
-	TypeOpenRouter   Type = "openrouter"
-	TypeZen          Type = "zen"
-	TypeOpenCodeGo   Type = "opencode-go"
-	TypeClaudeBin    Type = "claude-bin"
-	TypeGrokBin      Type = "grok-bin"
-	TypeCursorBin    Type = "cursor-bin"
-	TypeAgyBin       Type = "agy-bin"
-	TypeVibeBin      Type = "vibe-bin"
-	TypeOpenAICompat Type = "openai_compatible"
-	TypeVLLM         Type = "vllm"
-	TypeXAI          Type = "xai"
-	TypeVenice       Type = "venice"
-	TypeNearAI       Type = "nearai"
-	TypeSambaNova    Type = "sambanova"
-	TypeObscurify    Type = "obscurify"
-	TypeBedrock      Type = "bedrock"
-	TypeOllama       Type = "ollama"
+	TypeAnthropic     Type = "anthropic"
+	TypeOpenAI        Type = "openai"
+	TypeChatGPT       Type = "chatgpt"
+	TypeGrok          Type = "grok"
+	TypeCopilot       Type = "copilot"
+	TypeGemini        Type = "gemini"
+	TypeOpenRouter    Type = "openrouter"
+	TypeZen           Type = "zen"
+	TypeOpenCodeGo    Type = "opencode-go"
+	TypeClaudeBin     Type = "claude-bin"
+	TypeGrokBin       Type = "grok-bin"
+	TypeCursorBin     Type = "cursor-bin"
+	TypeAgyBin        Type = "agy-bin"
+	TypeVibeBin       Type = "vibe-bin"
+	TypeOpenAICompat  Type = "openai_compatible"
+	TypeVLLM          Type = "vllm"
+	TypeXAI           Type = "xai"
+	TypeVenice        Type = "venice"
+	TypeNearAI        Type = "nearai"
+	TypeSambaNova     Type = "sambanova"
+	TypeObscurify     Type = "obscurify"
+	TypeTrustedRouter Type = "trustedrouter"
+	TypeBedrock       Type = "bedrock"
+	TypeOllama        Type = "ollama"
 )
 
 // FieldSpec describes a field valid under providers.<name>.
@@ -326,6 +327,12 @@ var specs = []Spec{
 		Defaults:    []DefaultField{{"model", "z-ai/glm-5.3"}, {"fast_model", "deepseek/deepseek-v4-flash"}},
 		Description: "Obscurify.ai (privacy-focused, no-email accounts — OpenAI-compatible)",
 		Credential:  CredentialAPIKey, APIKeyEnv: "OBSCURIFY_API_KEY",
+	},
+	{
+		Name: "trustedrouter", Type: TypeTrustedRouter, ModelListing: ModelListingAPIKey, Wizard: WizardSpec{Order: 19, Label: "TrustedRouter - TRUSTEDROUTER_API_KEY", Hint: "set TRUSTEDROUTER_API_KEY"}, ConfigDefault: true, ShowInConfig: true, ResetTemplate: true,
+		Defaults:    []DefaultField{{"model", "trustedrouter/auto"}, {"fast_model", "trustedrouter/fast"}},
+		Description: "TrustedRouter (attested TEE gateway with ZDR/E2E routing — OpenAI-compatible)",
+		Credential:  CredentialAPIKey, APIKeyEnv: "TRUSTEDROUTER_API_KEY",
 	},
 	{
 		Name: "zen", Type: TypeZen, ModelListing: ModelListingZen, Wizard: WizardSpec{Order: 15, Label: "Zen - ZEN_API_KEY", Hint: "set ZEN_API_KEY"}, ConfigDefault: true, ShowInConfig: true, ResetTemplate: true,

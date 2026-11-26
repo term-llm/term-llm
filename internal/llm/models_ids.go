@@ -7,6 +7,7 @@ import (
 	"github.com/term-llm/term-llm/internal/config"
 	"github.com/term-llm/term-llm/internal/llm/providers/anthropic"
 	"github.com/term-llm/term-llm/internal/llm/providers/clibin"
+	"github.com/term-llm/term-llm/internal/llm/providers/opencompat"
 	rp "github.com/term-llm/term-llm/internal/llm/providers/responsesproviders"
 )
 
@@ -114,4 +115,23 @@ func ResolveProviderModelIDs(name string) []string {
 		return ProviderModelIDs(resolved)
 	}
 	return nil
+}
+
+func isMultiModelRouterProvider(provider, providerType string) bool {
+	return providerType == "openrouter" || provider == "openrouter" ||
+		providerType == "trustedrouter" || provider == "trustedrouter"
+}
+
+func cachedMultiModelRouterCandidates(provider, providerType string, cfg *config.Config, getModelIDs func(string) []string) ([]string, bool) {
+	apiKey := resolvedProviderAPIKey(cfg, provider)
+	if providerType == "trustedrouter" || provider == "trustedrouter" {
+		if cachedModels := opencompat.GetCachedTrustedRouterModels(apiKey); len(cachedModels) > 0 {
+			return cachedModels, true
+		}
+		return getModelIDs("trustedrouter"), true
+	}
+	if cachedModels := opencompat.GetCachedOpenRouterModels(apiKey); len(cachedModels) > 0 {
+		return cachedModels, true
+	}
+	return getModelIDs("openrouter"), true
 }

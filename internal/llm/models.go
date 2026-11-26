@@ -118,6 +118,15 @@ var ProviderModels = map[string][]ModelEntry{
 	"openrouter": {
 		{ID: "openrouter/free"},
 	},
+	"trustedrouter": {
+		// Routing presets; run `term-llm models --provider trustedrouter` for the full live catalog.
+		{ID: "trustedrouter/auto", InputLimit: 1_048_576},
+		{ID: "trustedrouter/zdr", InputLimit: 1_048_576},
+		{ID: "trustedrouter/e2e", InputLimit: 1_048_576},
+		{ID: "trustedrouter/fast", InputLimit: 131_072},
+		{ID: "trustedrouter/cheap", InputLimit: 1_048_576},
+		{ID: "trustedrouter/free", InputLimit: 128_000},
+	},
 	"gemini": {
 		{ID: "gemini-3.8-flash", InputLimit: 983_000, OutputLimit: 65_536},
 		{ID: "gemini-3.8-flash-thinking", InputLimit: 983_000, OutputLimit: 65_536},
@@ -1020,12 +1029,8 @@ func completionModelCandidates(provider string, isImage bool, providerCfg config
 				models = append([]string{providerCfg.Model}, models...)
 			}
 			return models, true
-		case providerType == "openrouter" || provider == "openrouter":
-			apiKey := resolvedProviderAPIKey(cfg, provider)
-			if cachedModels := opencompat.GetCachedOpenRouterModels(apiKey); len(cachedModels) > 0 {
-				return cachedModels, true
-			}
-			return getModelIDs("openrouter"), true
+		case isMultiModelRouterProvider(provider, providerType):
+			return cachedMultiModelRouterCandidates(provider, providerType, cfg, getModelIDs)
 		case providerType == "venice":
 			apiKey := resolvedProviderAPIKey(cfg, provider)
 			models := opencompat.GetCachedVeniceModels(apiKey)
