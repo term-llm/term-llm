@@ -10298,6 +10298,11 @@ describe('Preact-owned chat surfaces', () => {
     expect(screen.getByText(/Conflicts: file.txt/)).toBeVisible();
 
     const confirmRecovery = screen.getByRole('button', { name: recovery.yes_label });
+    console.log('DBG test before waitFor', {
+      active: document.activeElement?.textContent,
+      disabled: (confirmRecovery as HTMLButtonElement).disabled,
+      t: performance.now(),
+    });
     await waitFor(() => expect(confirmRecovery).toHaveFocus());
     await userEvent.click(confirmRecovery);
     expect(store.recoverWorktree).toHaveBeenCalledWith('/worktrees/feature-polish');

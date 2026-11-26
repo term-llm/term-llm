@@ -284,9 +284,30 @@ export function Worktrees() {
   }, [selected]);
 
   useEffect(() => {
+    console.log('DBG recovery effect', {
+      draft,
+      available: recovery?.available,
+      busy,
+      t: performance.now(),
+    });
     if (!recovery?.available || draft) return;
-    const focusFrame = requestAnimationFrame(() => recoveryConfirm.current?.focus());
-    return () => cancelAnimationFrame(focusFrame);
+    const focusFrame = requestAnimationFrame(() => {
+      const el = recoveryConfirm.current;
+      console.log('DBG recovery rAF', {
+        has: Boolean(el),
+        disabled: el?.disabled,
+        connected: el?.isConnected,
+        inert: Boolean(el?.closest('[inert]')),
+        active: document.activeElement?.textContent,
+        t: performance.now(),
+      });
+      el?.focus();
+      console.log('DBG after focus', { active: document.activeElement?.textContent });
+    });
+    return () => {
+      console.log('DBG recovery cleanup', { t: performance.now() });
+      cancelAnimationFrame(focusFrame);
+    };
   }, [draft, recovery]);
 
   const openDetail = (row: WorktreeRow) => {
