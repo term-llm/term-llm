@@ -287,7 +287,7 @@ export function Worktrees() {
     console.log('DBG recovery effect', {
       draft,
       available: recovery?.available,
-      busy,
+      disabled: recoveryConfirm.current?.disabled,
       t: performance.now(),
     });
     if (!recovery?.available || draft) return;
