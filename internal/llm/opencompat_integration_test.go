@@ -853,6 +853,40 @@ func TestOpenRouterCachedLimitFeedsProviderModelLookup(t *testing.T) {
 	}
 }
 
+func TestTrustedRouterCachedLimitAndCompletions(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("TRUSTEDROUTER_API_KEY", "")
+
+	// Offline curated preset fallback (including nyte/* alias).
+	if got := InputLimitForProviderModel("trustedrouter", "trustedrouter/auto"); got != 1_048_576 {
+		t.Fatalf("offline trustedrouter/auto limit = %d, want 1048576", got)
+	}
+	if got := InputLimitForProviderModel("trustedrouter", "nyte/zdr"); got != 1_048_576 {
+		t.Fatalf("offline nyte/zdr limit = %d, want 1048576", got)
+	}
+
+	// Cached live catalog wins over curated fallback and feeds completions.
+	opencompat.RefreshTrustedRouterCacheSync([]core.ModelInfo{
+		{ID: "trustedrouter/auto", InputLimit: 2_000_000},
+		{ID: "trustedrouter/zdr", InputLimit: 1_048_576},
+		{ID: "anthropic/claude-sonnet-4.6", InputLimit: 1_000_000},
+	})
+	if got := InputLimitForProviderModel("trustedrouter", "trustedrouter/auto"); got != 2_000_000 {
+		t.Fatalf("cached trustedrouter/auto limit = %d, want 2000000", got)
+	}
+	if got := InputLimitForProviderModel("trustedrouter", "nyte/auto"); got != 2_000_000 {
+		t.Fatalf("cached nyte/auto limit = %d, want 2000000", got)
+	}
+	if got := InputLimitForProviderModel("trustedrouter", "anthropic/claude-sonnet-4.6"); got != 1_000_000 {
+		t.Fatalf("cached anthropic/claude-sonnet-4.6 limit = %d, want 1000000", got)
+	}
+
+	completions := GetProviderCompletions("trustedrouter:anth", false, nil)
+	if len(completions) != 1 || completions[0] != "trustedrouter:anthropic/claude-sonnet-4.6" {
+		t.Fatalf("completions = %v, want [trustedrouter:anthropic/claude-sonnet-4.6]", completions)
+	}
+}
+
 // from sambanova_models_test.go: TestPricingForProviderModelSambaNova
 func TestPricingForProviderModelSambaNova(t *testing.T) {
 	input, output, ok := PricingForProviderModel("sambanova", "gpt-oss-120b")

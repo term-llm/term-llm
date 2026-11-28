@@ -358,11 +358,9 @@ func InputLimitForProviderModel(providerName, model string) int {
 		}
 	}
 
-	// The live Anthropic catalog wins over the curated rows it mirrors.
-	if providerType == string(config.ProviderTypeAnthropic) {
-		if result := anthropicInputLimit(model); result > 0 {
-			return result
-		}
+	// Live catalogs for Anthropic and TrustedRouter win over curated fallback rows.
+	if result := liveCatalogInputLimit(providerType, model); result > 0 {
+		return result
 	}
 
 	// 1. Explicit provider-scoped limits from ProviderModels
@@ -418,6 +416,26 @@ func InputLimitForProviderModel(providerName, model string) int {
 
 	// 5. Config fallback (provider-scoped, then model-only)
 	return configInputLimitForProvider(providerName, model)
+}
+
+func liveCatalogInputLimit(providerType, model string) int {
+	switch providerType {
+	case string(config.ProviderTypeAnthropic):
+		return anthropicInputLimit(model)
+	case string(config.ProviderTypeTrustedRouter):
+		if result := opencompat.TrustedRouterCachedInputLimit(model); result > 0 {
+			return result
+		}
+		if strings.HasPrefix(model, "nyte/") {
+			canonical := "trustedrouter/" + strings.TrimPrefix(model, "nyte/")
+			if v, ok := explicitProviderInput[configKey(providerType, canonical)]; ok {
+				return v
+			}
+		}
+		return 0
+	default:
+		return 0
+	}
 }
 
 // anthropicInputLimit prefers the live catalog. -1m selects the 1M-context

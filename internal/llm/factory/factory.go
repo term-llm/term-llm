@@ -173,6 +173,11 @@ var apiKeyProviderConstructors = map[config.ProviderType]func(string, string, *c
 		p.SetBaseURL(cfg.BaseURL)
 		return p, nil
 	},
+	config.ProviderTypeTrustedRouter: func(name, key string, cfg *config.ProviderConfig, _ Options) (Provider, error) {
+		p := opencompat.NewTrustedRouterProvider(key, cfg.Model)
+		p.SetBaseURL(cfg.BaseURL)
+		return p, nil
+	},
 	config.ProviderTypeOpenCodeGo: func(name, key string, cfg *config.ProviderConfig, _ Options) (Provider, error) {
 		if strings.TrimSpace(cfg.URL) != "" {
 			return nil, fmt.Errorf("provider %q does not support url overrides; use base_url", name)

@@ -28,12 +28,17 @@ func (s *serveServer) listModels(ctx context.Context, queryProvider string, fall
 	// fallback when upstream listing is unavailable or fails.
 	pc, hasCfg := s.cfgRef.Providers[effectiveName]
 	isOpenRouter := effectiveName == "openrouter" || (hasCfg && string(pc.Type) == "openrouter")
-	if isOpenRouter && (!hasCfg || strings.TrimSpace(pc.BaseURL) == "") {
+	isTrustedRouter := effectiveName == "trustedrouter" || (hasCfg && string(pc.Type) == "trustedrouter")
+	if (isOpenRouter || isTrustedRouter) && (!hasCfg || strings.TrimSpace(pc.BaseURL) == "") {
 		apiKey := ""
 		if hasCfg {
 			apiKey = pc.ResolvedAPIKey
 		}
-		models = append(models, opencompat.GetCachedOpenRouterModelInfos(apiKey)...)
+		if isTrustedRouter {
+			models = append(models, opencompat.GetCachedTrustedRouterModelInfos(apiKey)...)
+		} else {
+			models = append(models, opencompat.GetCachedOpenRouterModelInfos(apiKey)...)
+		}
 	}
 	if len(models) == 0 {
 		models = s.getCachedModelsForProvider(effectiveName)

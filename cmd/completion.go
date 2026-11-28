@@ -229,7 +229,7 @@ func refreshEndpointCompletionCache(toComplete string, cfg *config.Config) {
 		return
 	}
 	switch config.InferProviderType(provider, providerCfg.Type) {
-	case config.ProviderTypeOpenRouter, config.ProviderTypeVenice, config.ProviderTypeZen:
+	case config.ProviderTypeOpenRouter, config.ProviderTypeTrustedRouter, config.ProviderTypeVenice, config.ProviderTypeZen:
 		if config.Cred(providerCfg.BaseURL).IsDeferred() || config.Cred(providerCfg.APIKey).IsDeferred() {
 			return
 		}

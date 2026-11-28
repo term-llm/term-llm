@@ -11,7 +11,7 @@ import (
 )
 
 func TestNativeModelListerBaseURL(t *testing.T) {
-	for _, kind := range []config.ProviderType{config.ProviderTypeOpenRouter, config.ProviderTypeXAI, config.ProviderTypeVenice, config.ProviderTypeSambaNova, config.ProviderTypeNearAI, config.ProviderTypeZen} {
+	for _, kind := range []config.ProviderType{config.ProviderTypeOpenRouter, config.ProviderTypeTrustedRouter, config.ProviderTypeXAI, config.ProviderTypeVenice, config.ProviderTypeSambaNova, config.ProviderTypeNearAI, config.ProviderTypeZen} {
 		t.Run(string(kind), func(t *testing.T) {
 			requests := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -21,6 +21,7 @@ func TestNativeFactoryBaseURLInference(t *testing.T) {
 		{config.ProviderTypeGemini, "/nested/v1/models/test-model:streamGenerateContent"},
 		{config.ProviderTypeXAI, "/nested/v1/chat/completions"},
 		{config.ProviderTypeOpenRouter, "/nested/v1/chat/completions"},
+		{config.ProviderTypeTrustedRouter, "/nested/v1/chat/completions"},
 		{config.ProviderTypeVenice, "/nested/v1/chat/completions"},
 		{config.ProviderTypeNearAI, "/nested/v1/chat/completions"},
 		{config.ProviderTypeSambaNova, "/nested/v1/chat/completions"},

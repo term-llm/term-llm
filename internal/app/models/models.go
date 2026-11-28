@@ -371,6 +371,12 @@ var apiKeyModelListers = map[config.ProviderType]func(config.ProviderConfig) (Mo
 		p.SetBaseURL(providerCfg.BaseURL)
 		return p, nil
 	},
+	config.ProviderTypeTrustedRouter: func(providerCfg config.ProviderConfig) (ModelLister, error) {
+		apiKey := modelListAPIKey(providerCfg.ResolvedAPIKey, "TRUSTEDROUTER_API_KEY")
+		p := opencompat.NewTrustedRouterProvider(apiKey, providerCfg.Model)
+		p.SetBaseURL(providerCfg.BaseURL)
+		return p, nil
+	},
 }
 
 func newAPIKeyModelLister(providerType config.ProviderType, providerCfg config.ProviderConfig) (ModelLister, error) {
@@ -412,6 +418,12 @@ func refreshModelListCaches(providerName string, providerCfg config.ProviderConf
 		} else {
 			llm.RefreshEndpointCacheSync(providerCfg, models)
 		}
+	case config.ProviderTypeTrustedRouter:
+		if providerCfg.BaseURL == "" {
+			opencompat.RefreshTrustedRouterCacheSync(models)
+		} else {
+			llm.RefreshEndpointCacheSync(providerCfg, models)
+		}
 	case config.ProviderTypeCursorBin:
 		clibin.RefreshCursorBinCacheSync(models)
 	case config.ProviderTypeGrokBin:
@@ -428,12 +440,21 @@ func refreshModelListCaches(providerName string, providerCfg config.ProviderConf
 	}
 }
 
+func providerHasModelPricing(providerType config.ProviderType) bool {
+	switch providerType {
+	case config.ProviderTypeOpenRouter, config.ProviderTypeZen, config.ProviderTypeNearAI, config.ProviderTypeSambaNova, providerspec.TypeObscurify, config.ProviderTypeTrustedRouter:
+		return true
+	default:
+		return false
+	}
+}
+
 func printModelList(providerName string, providerType config.ProviderType, models []core.ModelInfo) error {
 	// Pretty print
 	fmt.Printf("Available models from %s:\n\n", providerName)
 
 	// Only these providers return or have known pricing info
-	providerHasPricing := providerType == config.ProviderTypeOpenRouter || providerType == config.ProviderTypeZen || providerType == config.ProviderTypeNearAI || providerType == config.ProviderTypeSambaNova || providerType == providerspec.TypeObscurify
+	providerHasPricing := providerHasModelPricing(providerType)
 
 	for _, m := range models {
 		if m.DisplayName != "" {

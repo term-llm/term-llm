@@ -57,7 +57,7 @@ func UsesEndpointModelCatalog(provider string, providerCfg config.ProviderConfig
 	switch config.InferProviderType(provider, providerCfg.Type) {
 	case config.ProviderTypeOpenAICompat, config.ProviderTypeVLLM:
 		return true
-	case config.ProviderTypeOpenRouter, config.ProviderTypeVenice, config.ProviderTypeZen:
+	case config.ProviderTypeOpenRouter, config.ProviderTypeTrustedRouter, config.ProviderTypeVenice, config.ProviderTypeZen:
 		return strings.TrimSpace(providerCfg.BaseURL) != ""
 	case config.ProviderTypeOpenCodeGo:
 		// A delegated route lists IDs without the separate public metadata

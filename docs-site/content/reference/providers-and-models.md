@@ -130,7 +130,7 @@ This controls text inference routed through term-llm's `providers` configuration
 
 The provider name selects an integration, not just a model vendor:
 
-- **Hosted APIs:** Anthropic, OpenAI, Gemini, xAI, OpenRouter, Venice, NEAR AI Cloud, SambaNova, Obscurify.ai, and OpenCode Zen.
+- **Hosted APIs:** Anthropic, OpenAI, Gemini, xAI, OpenRouter, TrustedRouter, Venice, NEAR AI Cloud, SambaNova, Obscurify.ai, and OpenCode Zen.
 - **AWS:** Bedrock uses AWS credentials and Bedrock model/inference-profile identifiers.
 - **Subscriptions:** ChatGPT, Grok, and Copilot use term-llm-managed OAuth; OpenCode Go uses a subscription API key.
 - **Companion CLIs:** `claude-bin`, `cursor-bin`, `agy-bin`, `grok-bin`, and `vibe-bin` run a separately installed and authenticated CLI.
@@ -156,6 +156,7 @@ Use `term-llm config path` to locate configuration. Native OAuth uses [`credenti
 | `nearai` | `nearai` | api_key; `NEARAI_API_KEY` | nearai (upstream listing) |
 | `sambanova` | `sambanova` | api_key; `SAMBANOVA_API_KEY` | api_key (upstream listing) |
 | `obscurify` | `obscurify` | api_key; `OBSCURIFY_API_KEY` | api_key (upstream listing) |
+| `trustedrouter` | `trustedrouter` | api_key; `TRUSTEDROUTER_API_KEY` | api_key (upstream listing) |
 | `zen` | `zen` | api_key; `ZEN_API_KEY` | zen (upstream listing) |
 | `opencode-go` | `opencode-go` | api_key; `OPENCODE_API_KEY` | opencode-go (upstream listing) |
 | `copilot` | `copilot` | oauth; run term-llm auth login copilot | copilot (upstream listing) |
@@ -186,6 +187,7 @@ Use `term-llm config path` to locate configuration. Native OAuth uses [`credenti
 | `nearai` | `NEARAI_API_KEY` | NEAR AI Cloud; check the service's privacy and TEE policies. |
 | `sambanova` | `SAMBANOVA_API_KEY` | SambaNova Cloud. |
 | `obscurify` | `OBSCURIFY_API_KEY` | Obscurify.ai; key from obscurify.ai/account. |
+| `trustedrouter` | `TRUSTEDROUTER_API_KEY` | TrustedRouter; attested Confidential Space gateway with ZDR/E2E presets and live model discovery. |
 | `zen` | `ZEN_API_KEY` | Paid models only; the free tier is restricted to OpenCode. |
 | `opencode-go` | `OPENCODE_API_KEY` | OpenCode Go subscription key; distinct from Zen's API key. |
 | `ollama` | Running local Ollama server; no API key needed for local use | Native `/api/chat`; configure `base_url` or `OLLAMA_HOST`, without `/v1`. |
@@ -502,6 +504,25 @@ providers:
 ```
 
 The provider uses `https://obscurify.ai/v1` and supports tool calls. `term-llm models --provider obscurify` queries the public `/models` endpoint (no key needed), which reports context windows and per-token prices.
+
+## TrustedRouter
+
+TrustedRouter is available as a built-in OpenAI-compatible provider with verifiable Google Confidential Space TEE attestation and privacy-aware routing presets:
+
+```bash
+export TRUSTEDROUTER_API_KEY=your-key
+term-llm ask --provider trustedrouter:trustedrouter/zdr "quick question"
+term-llm models --provider trustedrouter
+```
+
+```yaml
+providers:
+  trustedrouter:
+    model: trustedrouter/auto
+    fast_model: trustedrouter/fast
+```
+
+The provider uses `https://api.trustedrouter.com/v1` and supports tool calls. `term-llm models --provider trustedrouter` queries the public `/v1/models` endpoint (no key needed), filters out internal, hidden, synthetic-monitor, and non-chat rows, and caches the live chat catalog (hundreds of upstream models plus `trustedrouter/*` presets such as `trustedrouter/auto`, `trustedrouter/zdr`, `trustedrouter/e2e`, `trustedrouter/fast`, `trustedrouter/cheap`, `trustedrouter/free`, and `nyte/*` aliases) with context windows and per-token prices.
 
 ## Ollama
 
